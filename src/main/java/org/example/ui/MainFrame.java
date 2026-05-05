@@ -1,7 +1,9 @@
 package org.example.ui;
 
 import org.drinkless.tdlib.Client;
+import org.example.openai.OpenAIService;
 import org.example.telegram.TelegramService;
+import org.example.translate.MicrosoftTranslateService;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,9 +12,6 @@ public class MainFrame extends JFrame {
 
     private final TelegramService telegramService =
             new TelegramService();
-
-    private final JTextArea logArea =
-            new JTextArea();
 
     private final JTextArea chatArea =
             new JTextArea();
@@ -32,6 +31,18 @@ public class MainFrame extends JFrame {
     private final JTextField messageField =
             new JTextField();
 
+    private final JComboBox<String> languageBox =
+            new JComboBox<>(new String[]{
+
+                    "English",
+                    "Japanese",
+                    "Korean",
+                    "Chinese",
+                    "Thai",
+                    "French",
+                    "German"
+            });
+
     private final JButton loginButton =
             new JButton("Login");
 
@@ -45,11 +56,16 @@ public class MainFrame extends JFrame {
             new JButton("Load Chat");
 
     private final JButton sendButton =
-            new JButton("Send Message");
+            new JButton("Send");
 
     private long currentChatId = 0;
 
-    public MainFrame() throws Client.ExecutionException {
+    private final OpenAIService openAIService = new OpenAIService();
+
+    private final MicrosoftTranslateService translateService = new MicrosoftTranslateService();
+
+    public MainFrame()
+            throws Client.ExecutionException {
 
         setTitle("Telegram CSKH");
 
@@ -69,7 +85,9 @@ public class MainFrame extends JFrame {
         setLayout(new BorderLayout());
 
         JPanel topPanel =
-                new JPanel(new GridLayout(5, 3, 10, 10));
+                new JPanel(
+                        new GridLayout(6, 3, 10, 10)
+                );
 
         // PHONE
         topPanel.add(
@@ -89,7 +107,7 @@ public class MainFrame extends JFrame {
 
         topPanel.add(otpButton);
 
-        // 2FA
+        // PASSWORD
         topPanel.add(
                 new JLabel("2FA Password")
         );
@@ -107,6 +125,15 @@ public class MainFrame extends JFrame {
 
         topPanel.add(loadChatButton);
 
+        // LANGUAGE
+        topPanel.add(
+                new JLabel("Language")
+        );
+
+        topPanel.add(languageBox);
+
+        topPanel.add(new JLabel());
+
         // MESSAGE
         topPanel.add(
                 new JLabel("Message")
@@ -118,28 +145,14 @@ public class MainFrame extends JFrame {
 
         add(topPanel, BorderLayout.NORTH);
 
-        JSplitPane splitPane =
-                new JSplitPane(
-                        JSplitPane.VERTICAL_SPLIT
-                );
-
-        logArea.setEditable(false);
-
         chatArea.setEditable(false);
 
-        splitPane.setTopComponent(
-                new JScrollPane(logArea)
+        add(
+                new JScrollPane(chatArea),
+                BorderLayout.CENTER
         );
 
-        splitPane.setBottomComponent(
-                new JScrollPane(chatArea)
-        );
-
-        splitPane.setDividerLocation(250);
-
-        add(splitPane, BorderLayout.CENTER);
-
-        // LOGIN BUTTON
+        // LOGIN
         loginButton.addActionListener(e -> {
 
             telegramService.setPhoneNumber(
@@ -147,7 +160,7 @@ public class MainFrame extends JFrame {
             );
         });
 
-        // OTP BUTTON
+        // OTP
         otpButton.addActionListener(e -> {
 
             telegramService.checkCode(
@@ -155,7 +168,7 @@ public class MainFrame extends JFrame {
             );
         });
 
-        // PASSWORD BUTTON
+        // PASSWORD
         passwordButton.addActionListener(e -> {
 
             telegramService.checkPassword(
@@ -163,13 +176,13 @@ public class MainFrame extends JFrame {
             );
         });
 
-        // LOAD CHAT BUTTON
+        // LOAD CHAT
         loadChatButton.addActionListener(e -> {
 
             loadChat();
         });
 
-        // SEND BUTTON
+        // SEND
         sendButton.addActionListener(e -> {
 
             sendMessage();
@@ -185,18 +198,6 @@ public class MainFrame extends JFrame {
     private void initTelegram()
             throws Client.ExecutionException {
 
-        // LOG
-        telegramService.setLogListener(log -> {
-
-            SwingUtilities.invokeLater(() -> {
-
-                logArea.append(
-                        log + "\n"
-                );
-            });
-        });
-
-        // REALTIME MESSAGE
         telegramService.setMessageListener(
 
                 (chatId, sender, message) -> {
@@ -217,7 +218,6 @@ public class MainFrame extends JFrame {
                 }
         );
 
-        // HISTORY MESSAGE
         telegramService.setHistoryListener(
 
                 (chatId, sender, message) -> {
@@ -281,14 +281,32 @@ public class MainFrame extends JFrame {
                 return;
             }
 
+            String language =
+                    languageBox
+                            .getSelectedItem()
+                            .toString();
+
+            String translatedText =
+                    openAIService.translateText(
+                            text,
+                            language
+                    );
+
+            String translatedText1 =
+                    translateService.translate(
+                            text,
+                            language
+                    );
+
+
             telegramService.sendMessage(
                     chatId,
-                    text
+                    translatedText
             );
 
             chatArea.append(
                     "Tôi: "
-                            + text
+                            + translatedText
                             + "\n"
             );
 
@@ -298,7 +316,7 @@ public class MainFrame extends JFrame {
 
             JOptionPane.showMessageDialog(
                     this,
-                    "Chat ID không hợp lệ"
+                    "Lỗi gửi tin nhắn"
             );
         }
     }

@@ -366,12 +366,13 @@ public class TelegramService {
                 ),
 
                 object -> {
-                    System.out.println(object);
                     if (object instanceof TdApi.Messages messages) {
 
-                        for (TdApi.Message message
-                                : messages.messages) {
+                        for (int i = messages.messages.length - 1; i >= 0;
+                             i--) {
 
+                            TdApi.Message message =
+                                    messages.messages[i];
                             if (message.content
                                     instanceof TdApi.MessageText textMessage) {
 

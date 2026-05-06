@@ -1,9 +1,8 @@
 package org.example.ui;
 
 import org.drinkless.tdlib.Client;
-import org.example.openai.OpenAIService;
+import org.example.translate.LibreTranslateService;
 import org.example.telegram.TelegramService;
-import org.example.translate.MicrosoftTranslateService;
 
 import javax.swing.*;
 import java.awt.*;
@@ -33,7 +32,6 @@ public class MainFrame extends JFrame {
 
     private final JComboBox<String> languageBox =
             new JComboBox<>(new String[]{
-
                     "English",
                     "Japanese",
                     "Korean",
@@ -60,9 +58,7 @@ public class MainFrame extends JFrame {
 
     private long currentChatId = 0;
 
-    private final OpenAIService openAIService = new OpenAIService();
-
-    private final MicrosoftTranslateService translateService = new MicrosoftTranslateService();
+    private final LibreTranslateService openAIService = new LibreTranslateService();
 
     public MainFrame()
             throws Client.ExecutionException {
@@ -291,13 +287,6 @@ public class MainFrame extends JFrame {
                             text,
                             language
                     );
-
-            String translatedText1 =
-                    translateService.translate(
-                            text,
-                            language
-                    );
-
 
             telegramService.sendMessage(
                     chatId,

@@ -4,7 +4,11 @@ import org.drinkless.tdlib.Client;
 import org.drinkless.tdlib.TdApi;
 import org.example.listener.HistoryListener;
 import org.example.listener.MessageListener;
+import org.example.model.Customer;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
 public class TelegramService {
@@ -188,6 +192,93 @@ public class TelegramService {
 
             log("TDLIB CLOSED");
         }
+    }
+
+    public void getCustomers(
+            Consumer<List<Customer>> callback
+    ) {
+
+        client.send(
+
+                new TdApi.GetChats(
+                        null,
+                        100
+                ),
+
+                object -> {
+
+                    List<Customer> customers =
+                            new ArrayList<>();
+
+                    if (!(object instanceof TdApi.Chats chats)) {
+
+                        callback.accept(customers);
+
+                        return;
+                    }
+
+                    long[] chatIds =
+                            chats.chatIds;
+
+                    if (chatIds.length == 0) {
+
+                        callback.accept(customers);
+
+                        return;
+                    }
+
+                    final int[] loadedCount = {0};
+
+                    for (long chatId : chatIds) {
+
+                        client.send(
+
+                                new TdApi.GetChat(chatId),
+
+                                chatObject -> {
+
+                                    try {
+
+                                        if (chatObject instanceof TdApi.Chat chat) {
+
+                                            // CHỈ PRIVATE CHAT
+                                            if (!(chat.type
+                                                    instanceof TdApi.ChatTypePrivate)) {
+
+                                                return;
+                                            }
+
+                                            String title =
+                                                    chat.title;
+
+                                            String languageCode =
+                                                    "en";
+
+                                            Customer customer =
+                                                    new Customer(
+                                                            chat.id,
+                                                            title,
+                                                            languageCode
+                                                    );
+
+                                            customers.add(customer);
+                                        }
+
+                                    } finally {
+
+                                        loadedCount[0]++;
+
+                                        if (loadedCount[0]
+                                                >= chatIds.length) {
+
+                                            callback.accept(customers);
+                                        }
+                                    }
+                                }
+                        );
+                    }
+                }
+        );
     }
 
     // =========================

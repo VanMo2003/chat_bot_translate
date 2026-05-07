@@ -59,7 +59,7 @@ public class LibreTranslateService {
             JSONObject jsonBody = new JSONObject();
             jsonBody.put("q", text);
             jsonBody.put("source", "vi");
-            jsonBody.put("target", getLanguageCode(language));
+            jsonBody.put("target", language);
 
             RequestBody body = RequestBody.create(
                     jsonBody.toString(),
@@ -91,22 +91,5 @@ public class LibreTranslateService {
             e.printStackTrace();
             return text;
         }
-    }
-
-    private String getLanguageCode(String language) {
-
-        return switch (language) {
-
-            case "English" -> "en";
-            case "Japanese" -> "ja";
-            case "Korean" -> "ko";
-            case "Chinese" -> "zh";
-            case "Thai" -> "th";
-            case "French" -> "fr";
-            case "German" -> "de";
-            case "Vietnamese" -> "vi";
-
-            default -> "en";
-        };
     }
 }

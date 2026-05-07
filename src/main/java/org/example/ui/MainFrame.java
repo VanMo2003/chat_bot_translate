@@ -6,11 +6,23 @@ import org.example.telegram.TelegramService;
 import org.example.translate.LibreTranslateService;
 
 import javax.swing.*;
+import javax.swing.text.DefaultCaret;
 import java.awt.*;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class MainFrame extends JFrame {
+
+    // =========================
+    // FONT
+    // =========================
+
+    private final Font unicodeFont =
+            new Font("Noto Sans", Font.PLAIN, 16);
+
+    // =========================
+    // SERVICE
+    // =========================
 
     private final TelegramService telegramService =
             new TelegramService();
@@ -34,11 +46,12 @@ public class MainFrame extends JFrame {
     private final JTextField passwordField =
             new JTextField();
 
-    private final JTextField messageField =
-            new JTextField();
+    // MULTI LINE
+    private final JTextArea messageField =
+            new JTextArea(4, 20);
 
-    private final JTextField translatedField =
-            new JTextField();
+    private final JTextArea translatedField =
+            new JTextArea(4, 20);
 
     private final JComboBox<String> languageBox =
             new JComboBox<>();
@@ -92,7 +105,7 @@ public class MainFrame extends JFrame {
 
         setTitle("Telegram CSKH");
 
-        setSize(1000, 750);
+        setSize(1100, 800);
 
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
@@ -102,7 +115,6 @@ public class MainFrame extends JFrame {
 
         initTelegram();
 
-        // AUTO LOAD
         loadLanguages();
 
         loadCustomers();
@@ -117,48 +129,236 @@ public class MainFrame extends JFrame {
         setLayout(new BorderLayout());
 
         JPanel topPanel =
-                new JPanel(
-                        new GridLayout(
-                                7,
-                                3,
-                                10,
-                                10
-                        )
-                );
+                new JPanel(new GridBagLayout());
 
+        topPanel.setBorder(
+                BorderFactory.createEmptyBorder(
+                        10,
+                        10,
+                        10,
+                        10
+                )
+        );
+
+        GridBagConstraints gbc =
+                new GridBagConstraints();
+
+        gbc.insets =
+                new Insets(5, 5, 5, 5);
+
+        gbc.fill =
+                GridBagConstraints.HORIZONTAL;
+
+        gbc.weightx = 1;
+
+        int row = 0;
+
+        // =========================
+        // FONT
+        // =========================
+
+        phoneField.setFont(unicodeFont);
+
+        otpField.setFont(unicodeFont);
+
+        passwordField.setFont(unicodeFont);
+
+        messageField.setFont(unicodeFont);
+
+        translatedField.setFont(unicodeFont);
+
+        languageBox.setFont(unicodeFont);
+
+        customerBox.setFont(unicodeFont);
+
+        chatArea.setFont(unicodeFont);
+
+        // =========================
+        // MESSAGE AREA CONFIG
+        // =========================
+
+        messageField.setLineWrap(true);
+
+        messageField.setWrapStyleWord(true);
+
+        translatedField.setLineWrap(true);
+
+        translatedField.setWrapStyleWord(true);
+
+        // =========================
         // PHONE
-        topPanel.add(new JLabel("Phone"));
-        topPanel.add(phoneField);
-        topPanel.add(loginButton);
+        // =========================
 
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.weightx = 0;
+
+        topPanel.add(
+                new JLabel("Phone"),
+                gbc
+        );
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+
+        topPanel.add(phoneField, gbc);
+
+        gbc.gridx = 2;
+        gbc.weightx = 0;
+
+        topPanel.add(loginButton, gbc);
+
+        row++;
+
+        // =========================
         // OTP
-        topPanel.add(new JLabel("OTP"));
-        topPanel.add(otpField);
-        topPanel.add(otpButton);
+        // =========================
 
+        gbc.gridx = 0;
+        gbc.gridy = row;
+
+        topPanel.add(
+                new JLabel("OTP"),
+                gbc
+        );
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+
+        topPanel.add(otpField, gbc);
+
+        gbc.gridx = 2;
+        gbc.weightx = 0;
+
+        topPanel.add(otpButton, gbc);
+
+        row++;
+
+        // =========================
         // PASSWORD
-        topPanel.add(new JLabel("2FA Password"));
-        topPanel.add(passwordField);
-        topPanel.add(passwordButton);
+        // =========================
 
+        gbc.gridx = 0;
+        gbc.gridy = row;
+
+        topPanel.add(
+                new JLabel("2FA Password"),
+                gbc
+        );
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+
+        topPanel.add(passwordField, gbc);
+
+        gbc.gridx = 2;
+        gbc.weightx = 0;
+
+        topPanel.add(passwordButton, gbc);
+
+        row++;
+
+        // =========================
         // CUSTOMER
-        topPanel.add(new JLabel("Customer"));
-        topPanel.add(customerBox);
-        topPanel.add(refreshCustomerButton);
+        // =========================
 
+        gbc.gridx = 0;
+        gbc.gridy = row;
+
+        topPanel.add(
+                new JLabel("Customer"),
+                gbc
+        );
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+
+        topPanel.add(customerBox, gbc);
+
+        gbc.gridx = 2;
+        gbc.weightx = 0;
+
+        topPanel.add(refreshCustomerButton, gbc);
+
+        row++;
+
+        // =========================
         // LANGUAGE
-        topPanel.add(new JLabel("Language"));
-        topPanel.add(languageBox);
-        topPanel.add(loadChatButton);
+        // =========================
 
-        // MESSAGE
-        topPanel.add(new JLabel("Message (VN)"));
-        topPanel.add(messageField);
-        topPanel.add(translateButton);
+        gbc.gridx = 0;
+        gbc.gridy = row;
 
-        // TRANSLATED
-        topPanel.add(new JLabel("Translated"));
-        topPanel.add(translatedField);
+        topPanel.add(
+                new JLabel("Language"),
+                gbc
+        );
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+
+        topPanel.add(languageBox, gbc);
+
+        gbc.gridx = 2;
+        gbc.weightx = 0;
+
+        topPanel.add(loadChatButton, gbc);
+
+        row++;
+
+        // =========================
+        // MESSAGE AREA
+        // =========================
+
+        JScrollPane messageScroll =
+                new JScrollPane(messageField);
+
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.weightx = 0;
+        gbc.anchor = GridBagConstraints.NORTH;
+
+        topPanel.add(
+                new JLabel("Message (VN)"),
+                gbc
+        );
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+        gbc.fill = GridBagConstraints.BOTH;
+
+        topPanel.add(messageScroll, gbc);
+
+        gbc.gridx = 2;
+        gbc.weightx = 0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        topPanel.add(translateButton, gbc);
+
+        row++;
+
+        // =========================
+        // TRANSLATED AREA
+        // =========================
+
+        JScrollPane translatedScroll =
+                new JScrollPane(translatedField);
+
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.weightx = 0;
+        gbc.anchor = GridBagConstraints.NORTH;
+
+        topPanel.add(
+                new JLabel("Translated"),
+                gbc
+        );
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+        gbc.fill = GridBagConstraints.BOTH;
+
+        topPanel.add(translatedScroll, gbc);
 
         JPanel sendPanel =
                 new JPanel(
@@ -169,25 +369,38 @@ public class MainFrame extends JFrame {
 
         sendPanel.add(sendTranslatedButton);
 
-        topPanel.add(sendPanel);
+        gbc.gridx = 2;
+        gbc.weightx = 0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        topPanel.add(sendPanel, gbc);
 
         add(topPanel, BorderLayout.NORTH);
 
+        // =========================
         // CHAT AREA
+        // =========================
+
         chatArea.setEditable(false);
 
-        chatArea.setFont(
-                new Font(
-                        "Arial",
-                        Font.PLAIN,
-                        16
-                )
-        );
+        chatArea.setLineWrap(true);
+
+        chatArea.setWrapStyleWord(true);
 
         JScrollPane scrollPane =
                 new JScrollPane(chatArea);
 
         add(scrollPane, BorderLayout.CENTER);
+
+        // AUTO SCROLL
+
+        DefaultCaret caret =
+                (DefaultCaret)
+                        chatArea.getCaret();
+
+        caret.setUpdatePolicy(
+                DefaultCaret.ALWAYS_UPDATE
+        );
 
         // =========================
         // ACTION
@@ -231,19 +444,40 @@ public class MainFrame extends JFrame {
                 sendTranslated()
         );
 
-        // ENTER => TRANSLATE
-        messageField.addActionListener(e ->
-                translate()
+        // CTRL + ENTER => TRANSLATE
+
+        messageField.getInputMap().put(
+                KeyStroke.getKeyStroke(
+                        "ctrl ENTER"
+                ),
+                "translate"
+        );
+
+        messageField.getActionMap().put(
+                "translate",
+                new AbstractAction() {
+
+                    @Override
+                    public void actionPerformed(
+                            java.awt.event.ActionEvent e
+                    ) {
+
+                        translate();
+                    }
+                }
         );
 
         // CUSTOMER SELECT
+
         customerBox.addActionListener(e -> {
 
             Customer customer =
                     (Customer)
                             customerBox.getSelectedItem();
 
-            if (customer == null) return;
+            if (customer == null) {
+                return;
+            }
 
             currentChatId =
                     customer.getChatId();
@@ -348,7 +582,6 @@ public class MainFrame extends JFrame {
                     customerBox.addItem(customer);
                 }
 
-                // AUTO SELECT FIRST
                 if (customerBox.getItemCount() > 0) {
 
                     customerBox.setSelectedIndex(0);

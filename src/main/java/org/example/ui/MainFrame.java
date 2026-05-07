@@ -4,6 +4,7 @@ import org.drinkless.tdlib.Client;
 import org.example.model.Customer;
 import org.example.telegram.TelegramService;
 import org.example.translate.LibreTranslateService;
+import org.example.uitls.FontUtils;
 
 import javax.swing.*;
 import javax.swing.text.DefaultCaret;
@@ -16,9 +17,7 @@ public class MainFrame extends JFrame {
     // =========================
     // FONT
     // =========================
-
-    private final Font unicodeFont =
-            new Font("Noto Sans", Font.PLAIN, 16);
+    private final Font unicodeFont = FontUtils.getFont(16f);
 
     // =========================
     // SERVICE

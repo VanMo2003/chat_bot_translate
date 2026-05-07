@@ -407,7 +407,7 @@ public class MainFrame extends JFrame {
 
         loginButton.addActionListener(e ->
                 telegramService.resetSessionAndLogin(
-                        phoneField.getText()
+                        phoneField.getText().replaceAll("0", "+84")
                 )
         );
 

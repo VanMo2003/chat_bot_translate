@@ -1,16 +1,25 @@
 package org.example;
 
 import org.drinkless.tdlib.Client;
-import org.example.telegram.TelegramService;
+import org.example.ui.MainFrame;
+
+import javax.swing.*;
 
 public class Main {
-    public static void main(String[] args) throws Client.ExecutionException, InterruptedException {
-        TelegramService service =
-                new TelegramService();
 
-        service.init();
+    public static void main(String[] args) {
 
-        // GIỮ APP KHÔNG THOÁT
-        Thread.currentThread().join();
+        SwingUtilities.invokeLater(() -> {
+
+            MainFrame frame =
+                    null;
+            try {
+                frame = new MainFrame();
+            } catch (Client.ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+
+            frame.setVisible(true);
+        });
     }
 }

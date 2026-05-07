@@ -6,6 +6,7 @@ import org.example.listener.HistoryListener;
 import org.example.listener.MessageListener;
 import org.example.model.Customer;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -346,6 +347,71 @@ public class TelegramService {
         );
     }
 
+
+    public void resetSessionAndLogin(
+            String phone
+    ) {
+
+        try {
+
+            // đóng client cũ
+            if (client != null) {
+
+                CountDownLatch latch =
+                        new CountDownLatch(1);
+
+                client.send(
+                        new TdApi.Close(),
+                        object -> latch.countDown()
+                );
+
+                latch.await();
+            }
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+        }
+
+        // xóa thư mục session tdlib
+        deleteDirectory(
+                new File("tdlib")
+        );
+
+        log("ĐÃ XÓA SESSION CŨ");
+
+        try {
+
+            // tạo client mới
+            init();
+
+            // đợi tới khi TDLib yêu cầu phone
+            new Thread(() -> {
+
+                while (!(authorizationState
+                        instanceof TdApi.AuthorizationStateWaitPhoneNumber)) {
+
+                    try {
+
+                        Thread.sleep(300);
+
+                    } catch (InterruptedException e) {
+
+                        e.printStackTrace();
+                    }
+                }
+
+                // login số mới
+                setPhoneNumber(phone);
+
+            }).start();
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+        }
+    }
+
     // =========================
     // OTP
     // =========================
@@ -488,6 +554,25 @@ public class TelegramService {
                     }
                 }
         );
+    }
+
+    private void deleteDirectory(File file) {
+
+        if (file == null || !file.exists()) {
+            return;
+        }
+
+        File[] files = file.listFiles();
+
+        if (files != null) {
+
+            for (File child : files) {
+
+                deleteDirectory(child);
+            }
+        }
+
+        file.delete();
     }
 
     // =========================

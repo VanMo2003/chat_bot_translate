@@ -406,7 +406,7 @@ public class MainFrame extends JFrame {
         // =========================
 
         loginButton.addActionListener(e ->
-                telegramService.setPhoneNumber(
+                telegramService.resetSessionAndLogin(
                         phoneField.getText()
                 )
         );

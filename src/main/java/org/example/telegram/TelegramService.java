@@ -15,588 +15,218 @@ import java.util.function.Consumer;
 public class TelegramService {
 
     private static final int API_ID = 35344214;
-
-    private static final String API_HASH =
-            "65658305fb64c93acbf87215f2acfb7c";
+    private static final String API_HASH = "65658305fb64c93acbf87215f2acfb7c";
 
     private Client client;
-
     private Consumer<String> logListener;
-
     private MessageListener messageListener;
-
     private HistoryListener historyListener;
-
     private TdApi.AuthorizationState authorizationState;
 
     static {
-
         System.loadLibrary("tdjni");
     }
 
-    // =========================
-    // SET LISTENER
-    // =========================
-
-    public void setLogListener(
-            Consumer<String> logListener
-    ) {
-
+    public void setLogListener(Consumer<String> logListener) {
         this.logListener = logListener;
     }
 
-    public void setMessageListener(
-            MessageListener messageListener
-    ) {
-
+    public void setMessageListener(MessageListener messageListener) {
         this.messageListener = messageListener;
     }
 
-    public void setHistoryListener(
-            HistoryListener historyListener
-    ) {
-
+    public void setHistoryListener(HistoryListener historyListener) {
         this.historyListener = historyListener;
     }
 
-    // =========================
-    // LOG
-    // =========================
-
-    private void log(
-            String text
-    ) {
-
+    private void log(String text) {
         System.out.println(text);
-
         if (logListener != null) {
-
             logListener.accept(text);
         }
     }
 
-    // =========================
-    // INIT
-    // =========================
-
-    public void init()
-            throws Client.ExecutionException {
-
-        Client.execute(
-                new TdApi.SetLogVerbosityLevel(0)
-        );
-
-        client = Client.create(
-
-                this::onUpdate,
-
-                this::onError,
-
-                this::onError
-        );
+    public void init() throws Client.ExecutionException {
+        Client.execute(new TdApi.SetLogVerbosityLevel(0));
+        client = Client.create(this::onUpdate, this::onError, this::onError);
     }
 
-    // =========================
-    // UPDATE
-    // =========================
-
-    private void onUpdate(
-            TdApi.Object object
-    ) {
-
+    private void onUpdate(TdApi.Object object) {
         if (object instanceof TdApi.UpdateAuthorizationState update) {
-
-            handleAuth(
-                    update.authorizationState
-            );
-        }
-
-        else if (object instanceof TdApi.UpdateNewMessage update) {
-
+            handleAuth(update.authorizationState);
+        } else if (object instanceof TdApi.UpdateNewMessage update) {
             handleNewMessage(update);
         }
     }
 
-    // =========================
-    // AUTH
-    // =========================
-
-    private void handleAuth(
-            TdApi.AuthorizationState state
-    ) {
-
+    private void handleAuth(TdApi.AuthorizationState state) {
         authorizationState = state;
+        log("AUTH STATE => " + state.getClass().getSimpleName());
 
-        log(
-                "AUTH STATE => "
-                        + state.getClass().getSimpleName()
-        );
-
-        // STEP 1
         if (state instanceof TdApi.AuthorizationStateWaitTdlibParameters) {
-
-            TdApi.SetTdlibParameters params =
-                    new TdApi.SetTdlibParameters();
-
+            TdApi.SetTdlibParameters params = new TdApi.SetTdlibParameters();
             params.databaseDirectory = "tdlib";
-
             params.useMessageDatabase = true;
-
             params.useSecretChats = true;
-
             params.useFileDatabase = true;
-
             params.useChatInfoDatabase = true;
-
             params.apiId = API_ID;
-
             params.apiHash = API_HASH;
-
             params.systemLanguageCode = "en";
-
             params.deviceModel = "Desktop";
-
             params.applicationVersion = "1.0";
-
-            client.send(
-                    params,
-                    this::onResult
-            );
-        }
-
-        // STEP 2
-        else if (state instanceof TdApi.AuthorizationStateWaitPhoneNumber) {
-
+            client.send(params, this::onResult);
+        } else if (state instanceof TdApi.AuthorizationStateWaitPhoneNumber) {
             log("ENTER PHONE NUMBER");
-        }
-
-        // STEP 3
-        else if (state instanceof TdApi.AuthorizationStateWaitCode) {
-
+        } else if (state instanceof TdApi.AuthorizationStateWaitCode) {
             log("ENTER OTP CODE");
-        }
-
-        // STEP 4
-        else if (state instanceof TdApi.AuthorizationStateWaitPassword) {
-
+        } else if (state instanceof TdApi.AuthorizationStateWaitPassword) {
             log("ENTER 2FA PASSWORD");
-        }
-
-        // SUCCESS
-        else if (state instanceof TdApi.AuthorizationStateReady) {
-
+        } else if (state instanceof TdApi.AuthorizationStateReady) {
             log("LOGIN SUCCESS");
-        }
-
-        // CLOSED
-        else if (state instanceof TdApi.AuthorizationStateClosed) {
-
+        } else if (state instanceof TdApi.AuthorizationStateClosed) {
             log("TDLIB CLOSED");
         }
     }
 
-    public void getCustomers(
-            Consumer<List<Customer>> callback
-    ) {
+    public void getCustomers(Consumer<List<Customer>> callback) {
+        client.send(new TdApi.GetChats(null, 100), object -> {
+            List<Customer> customers = new ArrayList<>();
+            if (!(object instanceof TdApi.Chats chats)) {
+                callback.accept(customers);
+                return;
+            }
+            long[] chatIds = chats.chatIds;
+            if (chatIds.length == 0) {
+                callback.accept(customers);
+                return;
+            }
 
-        client.send(
-
-                new TdApi.GetChats(
-                        null,
-                        100
-                ),
-
-                object -> {
-
-                    List<Customer> customers =
-                            new ArrayList<>();
-
-                    if (!(object instanceof TdApi.Chats chats)) {
-
-                        callback.accept(customers);
-
-                        return;
+            final int[] loadedCount = {0};
+            for (long chatId : chatIds) {
+                client.send(new TdApi.GetChat(chatId), chatObject -> {
+                    try {
+                        if (chatObject instanceof TdApi.Chat chat) {
+                            if (!(chat.type instanceof TdApi.ChatTypePrivate)) {
+                                return;
+                            }
+                            customers.add(new Customer(chat.id, chat.title, "en"));
+                        }
+                    } finally {
+                        loadedCount[0]++;
+                        if (loadedCount[0] >= chatIds.length) {
+                            callback.accept(customers);
+                        }
                     }
-
-                    long[] chatIds =
-                            chats.chatIds;
-
-                    if (chatIds.length == 0) {
-
-                        callback.accept(customers);
-
-                        return;
-                    }
-
-                    final int[] loadedCount = {0};
-
-                    for (long chatId : chatIds) {
-
-                        client.send(
-
-                                new TdApi.GetChat(chatId),
-
-                                chatObject -> {
-
-                                    try {
-
-                                        if (chatObject instanceof TdApi.Chat chat) {
-
-                                            // CHỈ PRIVATE CHAT
-                                            if (!(chat.type
-                                                    instanceof TdApi.ChatTypePrivate)) {
-
-                                                return;
-                                            }
-
-                                            String title =
-                                                    chat.title;
-
-                                            String languageCode =
-                                                    "en";
-
-                                            Customer customer =
-                                                    new Customer(
-                                                            chat.id,
-                                                            title,
-                                                            languageCode
-                                                    );
-
-                                            customers.add(customer);
-                                        }
-
-                                    } finally {
-
-                                        loadedCount[0]++;
-
-                                        if (loadedCount[0]
-                                                >= chatIds.length) {
-
-                                            callback.accept(customers);
-                                        }
-                                    }
-                                }
-                        );
-                    }
-                }
-        );
+                });
+            }
+        });
     }
 
-    // =========================
-    // NEW MESSAGE
-    // =========================
+    private void handleNewMessage(TdApi.UpdateNewMessage update) {
+        TdApi.Message message = update.message;
+        long chatId = message.chatId;
 
-    private void handleNewMessage(
-            TdApi.UpdateNewMessage update
-    ) {
-
-        TdApi.Message message =
-                update.message;
-
-        long chatId =
-                message.chatId;
-
-        if (message.content
-                instanceof TdApi.MessageText textMessage) {
-
-            String text =
-                    textMessage.text.text;
-
-            String sender =
-                    message.isOutgoing
-                            ? "Tôi"
-                            : "Khách";
+        if (message.content instanceof TdApi.MessageText textMessage) {
+            String text = textMessage.text.text;
+            String sender = message.isOutgoing ? "Tôi" : "Khách";
 
             if (messageListener != null) {
-
-                messageListener.onMessage(
-                        chatId,
-                        sender,
-                        text
-                );
+                messageListener.onMessage(chatId, sender, text);
             }
         }
     }
 
-    // =========================
-    // PHONE
-    // =========================
-
-    public void setPhoneNumber(
-            String phone
-    ) {
-
-        if (!(authorizationState
-                instanceof TdApi.AuthorizationStateWaitPhoneNumber)) {
-
-            log(
-                    "Telegram chưa sẵn sàng nhập số điện thoại"
-            );
-
+    public void setPhoneNumber(String phone) {
+        if (!(authorizationState instanceof TdApi.AuthorizationStateWaitPhoneNumber)) {
+            log("Telegram chưa sẵn sàng nhập số điện thoại");
             return;
         }
-
-        client.send(
-
-                new TdApi.SetAuthenticationPhoneNumber(
-                        phone,
-                        null
-                ),
-
-                this::onResult
-        );
+        client.send(new TdApi.SetAuthenticationPhoneNumber(phone, null), this::onResult);
     }
 
-
-    public void resetSessionAndLogin(
-            String phone
-    ) {
-
+    public void resetSessionAndLogin(String phone) {
         try {
-
-            // đóng client cũ
             if (client != null) {
-
-                CountDownLatch latch =
-                        new CountDownLatch(1);
-
-                client.send(
-                        new TdApi.Close(),
-                        object -> latch.countDown()
-                );
-
+                CountDownLatch latch = new CountDownLatch(1);
+                client.send(new TdApi.Close(), object -> latch.countDown());
                 latch.await();
             }
-
         } catch (Exception e) {
-
             e.printStackTrace();
         }
 
-        // xóa thư mục session tdlib
-        deleteDirectory(
-                new File("tdlib")
-        );
-
+        deleteDirectory(new File("tdlib"));
         log("ĐÃ XÓA SESSION CŨ");
 
         try {
-
-            // tạo client mới
             init();
-
-            // đợi tới khi TDLib yêu cầu phone
             new Thread(() -> {
-
-                while (!(authorizationState
-                        instanceof TdApi.AuthorizationStateWaitPhoneNumber)) {
-
+                while (!(authorizationState instanceof TdApi.AuthorizationStateWaitPhoneNumber)) {
                     try {
-
                         Thread.sleep(300);
-
                     } catch (InterruptedException e) {
-
                         e.printStackTrace();
                     }
                 }
-
-                // login số mới
                 setPhoneNumber(phone);
-
             }).start();
-
         } catch (Exception e) {
-
             e.printStackTrace();
         }
     }
 
-    // =========================
-    // OTP
-    // =========================
-
-    public void checkCode(
-            String code
-    ) {
-
-        if (!(authorizationState
-                instanceof TdApi.AuthorizationStateWaitCode)) {
-
-            log(
-                    "Telegram chưa yêu cầu OTP"
-            );
-
-            return;
-        }
-
-        client.send(
-
-                new TdApi.CheckAuthenticationCode(
-                        code
-                ),
-
-                this::onResult
-        );
+    public void checkCode(String code) {
+        if (!(authorizationState instanceof TdApi.AuthorizationStateWaitCode)) return;
+        client.send(new TdApi.CheckAuthenticationCode(code), this::onResult);
     }
 
-    // =========================
-    // PASSWORD
-    // =========================
-
-    public void checkPassword(
-            String password
-    ) {
-
-        if (!(authorizationState
-                instanceof TdApi.AuthorizationStateWaitPassword)) {
-
-            log(
-                    "Telegram chưa yêu cầu mật khẩu 2FA"
-            );
-
-            return;
-        }
-
-        client.send(
-
-                new TdApi.CheckAuthenticationPassword(
-                        password
-                ),
-
-                this::onResult
-        );
+    public void checkPassword(String password) {
+        if (!(authorizationState instanceof TdApi.AuthorizationStateWaitPassword)) return;
+        client.send(new TdApi.CheckAuthenticationPassword(password), this::onResult);
     }
 
-    // =========================
-    // SEND MESSAGE
-    // =========================
-
-    public void sendMessage(
-            long chatId,
-            String text
-    ) {
-
-        TdApi.InputMessageContent content =
-                new TdApi.InputMessageText(
-
-                        new TdApi.FormattedText(
-                                text,
-                                null
-                        ),
-
-                        null,
-
-                        false
-                );
-
-        TdApi.SendMessage request =
-                new TdApi.SendMessage();
-
+    public void sendMessage(long chatId, String text) {
+        TdApi.InputMessageContent content = new TdApi.InputMessageText(
+                new TdApi.FormattedText(text, null), null, false
+        );
+        TdApi.SendMessage request = new TdApi.SendMessage();
         request.chatId = chatId;
-
-        request.inputMessageContent =
-                content;
-
-        client.send(
-                request,
-                this::onResult
-        );
+        request.inputMessageContent = content;
+        client.send(request, this::onResult);
     }
 
-    // =========================
-    // LOAD HISTORY
-    // =========================
-
-    public void loadChatHistory(
-            long chatId
-    ) {
-
-        client.send(
-
-                new TdApi.GetChatHistory(
-                        chatId,
-                        0,
-                        0,
-                        50,
-                        false
-                ),
-
-                object -> {
-                    if (object instanceof TdApi.Messages messages) {
-
-                        for (int i = messages.messages.length - 1; i >= 0;
-                             i--) {
-
-                            TdApi.Message message =
-                                    messages.messages[i];
-                            if (message.content
-                                    instanceof TdApi.MessageText textMessage) {
-
-                                String sender =
-                                        message.isOutgoing
-                                                ? "Tôi"
-                                                : "Khách";
-
-                                String text =
-                                        textMessage.text.text;
-
-                                if (historyListener != null) {
-
-                                    historyListener.onHistoryMessage(
-                                            chatId,
-                                            sender,
-                                            text
-                                    );
-                                }
-                            }
+    public void loadChatHistory(long chatId) {
+        client.send(new TdApi.GetChatHistory(chatId, 0, 0, 50, false), object -> {
+            if (object instanceof TdApi.Messages messages) {
+                for (int i = messages.messages.length - 1; i >= 0; i--) {
+                    TdApi.Message message = messages.messages[i];
+                    if (message.content instanceof TdApi.MessageText textMessage) {
+                        String sender = message.isOutgoing ? "Tôi" : "Khách";
+                        String text = textMessage.text.text;
+                        if (historyListener != null) {
+                            historyListener.onHistoryMessage(chatId, sender, text);
                         }
                     }
                 }
-        );
+            }
+        });
     }
 
     private void deleteDirectory(File file) {
-
-        if (file == null || !file.exists()) {
-            return;
-        }
-
+        if (file == null || !file.exists()) return;
         File[] files = file.listFiles();
-
         if (files != null) {
-
-            for (File child : files) {
-
-                deleteDirectory(child);
-            }
+            for (File child : files) deleteDirectory(child);
         }
-
         file.delete();
     }
 
-    // =========================
-    // RESULT
-    // =========================
-
-    private void onResult(
-            TdApi.Object object
-    ) {
-
-        log(
-                "RESULT => "
-                        + object
-        );
+    private void onResult(TdApi.Object object) {
+        log("RESULT => " + object);
     }
 
-    // =========================
-    // ERROR
-    // =========================
-
-    private void onError(
-            Throwable throwable
-    ) {
-
+    private void onError(Throwable throwable) {
         throwable.printStackTrace();
     }
 }

@@ -285,6 +285,17 @@ public class TelegramService {
         });
     }
 
+    // ĐÃ THÊM: Hàm gọi Telegram lấy thông tin của một Chat bất kỳ (dành cho người lạ nhắn tới)
+    public void getChatTitle(long chatId, Consumer<String> callback) {
+        client.send(new TdApi.GetChat(chatId), object -> {
+            if (object instanceof TdApi.Chat chat) {
+                callback.accept(chat.title);
+            } else {
+                callback.accept("Người dùng ẩn danh");
+            }
+        });
+    }
+
     private void dispatchHistory(long chatId, TdApi.Messages messages) {
         log("Bắt đầu Dispatch History cho " + messages.messages.length + " tin nhắn...");
         for (int i = messages.messages.length - 1; i >= 0; i--) {
@@ -310,7 +321,6 @@ public class TelegramService {
     }
 
     private void onResult(TdApi.Object object) {
-        // Log nội bộ của TDLib
     }
 
     private void onError(Throwable throwable) {

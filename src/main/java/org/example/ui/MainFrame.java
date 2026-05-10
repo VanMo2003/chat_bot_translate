@@ -36,7 +36,6 @@ public class MainFrame extends JFrame {
     private final Map<Long, String> originalMessages = new ConcurrentHashMap<>();
     private final Map<Long, String> messageSenders = new ConcurrentHashMap<>();
     private long currentChatId = 0;
-    private Customer currentUser = new Customer();
 
     private final DefaultListModel<Customer> customerListModel = new DefaultListModel<>();
     private final JList<Customer> customerList = new JList<>(customerListModel);
@@ -241,8 +240,12 @@ public class MainFrame extends JFrame {
 
         customerList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
-                System.out.println("[MainFrame] Chọn User trên List...");
-                loadSelectedChat();
+                Customer selected = customerList.getSelectedValue();
+                // ĐÃ SỬA: Chỉ load nếu click vào người khác, tránh bị chớp khung chat khi tự động sắp xếp lại danh sách
+                if (selected != null && selected.getChatId() != currentChatId) {
+                    System.out.println("[MainFrame] Chọn User trên List...");
+                    loadSelectedChat();
+                }
             }
         });
 
@@ -282,28 +285,70 @@ public class MainFrame extends JFrame {
     private void initTelegram() throws Client.ExecutionException {
         telegramService.setMessageListener((chatId, sender, messageText) -> {
             long msgId = System.nanoTime();
-            System.out.println("[MainFrame] Xử lý hiển thị tin nhắn mới. ID: " + msgId);
+            System.out.println("[MainFrame] Xử lý hiển thị tin nhắn mới. ID: " + msgId + " từ ChatID: " + chatId);
 
             SwingUtilities.invokeLater(() -> {
+                // Xử lý chèn tin nhắn vào Cache (nếu chat đó từng được mở)
                 if (chatHtmlCache.containsKey(chatId)) {
                     appendBubbleToBuilder(chatId, msgId, sender, messageText, false);
-
                     if ("Khách".equals(sender)) {
                         System.out.println("[MainFrame] Kích hoạt auto dịch cho Khách gửi, MsgID: " + msgId);
                         translateSingleMessage(chatId, msgId);
                     }
                 }
 
-                if (chatId != currentChatId && "Khách".equals(sender)) {
-                    int count = unreadCounts.getOrDefault(chatId, 0);
-                    unreadCounts.put(chatId, count + 1);
-                    customerList.repaint();
-                    System.out.println("[MainFrame] Tăng đếm tin nhắn chưa đọc cho ChatID: " + chatId + ". Total: " + (count+1));
-                }
+                // ĐÃ THÊM: Cập nhật Danh sách & đẩy lên đầu
+                moveToTopOrAddNewUser(chatId, sender);
             });
         });
 
         telegramService.init();
+    }
+
+    // ĐÃ THÊM: Hàm xử lý Đẩy người dùng lên đầu danh sách hoặc thêm người lạ
+    private void moveToTopOrAddNewUser(long chatId, String sender) {
+        Customer found = null;
+        for (Customer c : allCustomers) {
+            if (c.getChatId() == chatId) {
+                found = c;
+                break;
+            }
+        }
+
+        if (found != null) {
+            // Đã có trong danh sách -> Nhấc lên đầu
+            System.out.println("[MainFrame] Đẩy User có ChatID " + chatId + " lên đầu danh sách.");
+            allCustomers.remove(found);
+            allCustomers.add(0, found);
+            updateUnreadAndRefreshList(chatId, sender);
+        } else {
+            // Là người lạ chưa từng xuất hiện -> Gọi API hỏi tên
+            System.out.println("[MainFrame] Nhận được tin nhắn từ người lạ ChatID " + chatId + ". Đang gọi API lấy tên...");
+            telegramService.getChatTitle(chatId, title -> {
+                SwingUtilities.invokeLater(() -> {
+                    System.out.println("[MainFrame] Đã lấy được tên: " + title + ". Thêm vào đầu danh sách.");
+                    Customer newCustomer = new Customer(chatId, title, "en");
+                    allCustomers.add(0, newCustomer);
+                    updateUnreadAndRefreshList(chatId, sender);
+                });
+            });
+        }
+    }
+
+    // ĐÃ THÊM: Hàm phụ trợ cập nhật số tin nhắn chưa đọc và render lại List giữ nguyên focus
+    private void updateUnreadAndRefreshList(long chatId, String sender) {
+        if (chatId != currentChatId && "Khách".equals(sender)) {
+            unreadCounts.put(chatId, unreadCounts.getOrDefault(chatId, 0) + 1);
+        }
+
+        // Ghi nhớ người đang chọn để không bị nhảy lung tung khi cập nhật
+        Customer selected = customerList.getSelectedValue();
+
+        filterUsers(); // Rebuild lại customerListModel từ allCustomers đã được xếp lại
+
+        if (selected != null) {
+            customerList.setSelectedValue(selected, true);
+        }
     }
 
     private void loadLanguages() {

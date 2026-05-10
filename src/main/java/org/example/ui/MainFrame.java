@@ -51,10 +51,10 @@ public class MainFrame extends JFrame {
 
     private final JTextPane chatPane = new JTextPane();
 
-    private final JTextArea messageField = new JTextArea(3, 20);
-    private final JTextArea translatedField = new JTextArea(3, 20);
+    private final JTextArea messageField = new JTextArea(6, 20);
+    private final JTextArea translatedField = new JTextArea(6, 20);
     private final JButton translateButton = new JButton("Dịch (Ctrl+Enter)");
-    private final JButton sendOriginalButton = new JButton("Gửi gốc");
+    private final JButton sendOriginalButton = new JButton("Gửi bản gốc");
     private final JButton sendTranslatedButton = new JButton("Gửi bản dịch");
 
     public MainFrame() throws Client.ExecutionException {

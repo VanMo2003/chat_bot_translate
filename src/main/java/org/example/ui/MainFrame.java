@@ -58,9 +58,12 @@ public class MainFrame extends JFrame {
         setLocationRelativeTo(null);
 
         initUI();
+
+        // Đã sửa: Load user tự động khi Auth báo Ready
+        telegramService.setOnAuthReady(() -> SwingUtilities.invokeLater(this::loadCustomers));
+
         initTelegram();
         loadLanguages();
-        loadCustomers();
     }
 
     private void initUI() {
@@ -84,16 +87,14 @@ public class MainFrame extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-        // Thanh tìm kiếm và nút tải lại
         JPanel topPanel = new JPanel(new BorderLayout(5, 5));
         searchUserField.setFont(unicodeFont);
         searchUserField.setToolTipText("Tìm kiếm người dùng...");
-        searchUserField.setPreferredSize(new Dimension(150, 30)); // Đặt kích thước
+        searchUserField.setPreferredSize(new Dimension(150, 30));
         topPanel.add(new JLabel("Tìm user: "), BorderLayout.WEST);
         topPanel.add(searchUserField, BorderLayout.CENTER);
         topPanel.add(refreshCustomerButton, BorderLayout.SOUTH);
 
-        // Danh sách người dùng
         customerList.setFont(unicodeFont);
         customerList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         JScrollPane scrollPane = new JScrollPane(customerList);
@@ -111,10 +112,8 @@ public class MainFrame extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-        // 1. TOP PANEL: Chức năng cấu hình & Đăng nhập
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
 
-        // FIX: Đặt kích thước cứng để tránh bị ép lại
         searchLangField.setFont(unicodeFont);
         searchLangField.setToolTipText("Tìm NN");
         searchLangField.setPreferredSize(new Dimension(150, 30));
@@ -134,14 +133,12 @@ public class MainFrame extends JFrame {
         rightLoginPanel.add(showLoginButton);
         wrapperTop.add(rightLoginPanel, BorderLayout.EAST);
 
-        // 2. CENTER PANEL: Vùng hiển thị Chat
         chatPane.setEditable(false);
         chatPane.setContentType("text/html");
         chatPane.setFont(unicodeFont);
         JScrollPane chatScroll = new JScrollPane(chatPane);
         resetChatHtml();
 
-        // 3. BOTTOM PANEL: Nhập liệu và Gửi tin
         JPanel bottomPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
@@ -155,7 +152,6 @@ public class MainFrame extends JFrame {
         translatedField.setLineWrap(true);
         translatedField.setWrapStyleWord(true);
 
-        // Hàng 1
         gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 1.0; gbc.weighty = 0.5;
         bottomPanel.add(new JScrollPane(messageField), gbc);
 
@@ -165,7 +161,6 @@ public class MainFrame extends JFrame {
         gbc.gridx = 1; gbc.weightx = 0;
         bottomPanel.add(btnPanel1, gbc);
 
-        // Hàng 2
         gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 1.0; gbc.weighty = 0.5;
         bottomPanel.add(new JScrollPane(translatedField), gbc);
 
@@ -286,8 +281,9 @@ public class MainFrame extends JFrame {
         if (customer == null) return;
 
         currentChatId = customer.getChatId();
-        resetChatHtml();
-        telegramService.loadChatHistory(currentChatId);
+
+        // Đã sửa: Pass resetChatHtml dạng callback để chỉ clear UI sau khi Server đã tải xong dữ liệu
+        telegramService.loadChatHistory(currentChatId, this::resetChatHtml);
     }
 
     private void translateMessage() {
@@ -311,20 +307,19 @@ public class MainFrame extends JFrame {
     private void translateAllChatToVietnamese() {
         new Thread(() -> {
             try {
-                SwingUtilities.invokeLater(() -> {
-                    resetChatHtml();
-                    appendChatMessage("Hệ thống", "<i>Đang tải và dịch toàn bộ tin nhắn...</i>");
-                });
-
                 telegramService.setHistoryListener((chatId, sender, message) -> {
                     if (chatId != currentChatId) return;
                     String translatedMsg = translateService.translateText(message, "auto", "vi");
                     SwingUtilities.invokeLater(() -> appendChatMessage(sender, translatedMsg));
                 });
 
-                telegramService.loadChatHistory(currentChatId);
+                // Pass hàm callback để báo hiệu "Đang dịch"
+                telegramService.loadChatHistory(currentChatId, () -> {
+                    resetChatHtml();
+                    appendChatMessage("Hệ thống", "<i>Đang tải và dịch toàn bộ tin nhắn...</i>");
+                });
 
-                Thread.sleep(3000);
+                Thread.sleep(4000);
                 telegramService.setHistoryListener((chatId, sender, message) -> {
                     if (chatId != currentChatId) return;
                     SwingUtilities.invokeLater(() -> appendChatMessage(sender, message));
@@ -400,7 +395,6 @@ public class MainFrame extends JFrame {
             super(parent, "Đăng nhập Telegram", true);
             setLayout(new GridBagLayout());
 
-            // FIX: Tăng kích thước cửa sổ lên cho thoải mái
             setSize(450, 220);
             setLocationRelativeTo(parent);
 
@@ -412,7 +406,6 @@ public class MainFrame extends JFrame {
             otpField.setFont(font);
             passwordField.setFont(font);
 
-            // Thêm chiều cao cho textfield để dễ nhìn hơn
             phoneField.setPreferredSize(new Dimension(150, 30));
             otpField.setPreferredSize(new Dimension(150, 30));
             passwordField.setPreferredSize(new Dimension(150, 30));
@@ -421,26 +414,21 @@ public class MainFrame extends JFrame {
             JButton otpBtn = new JButton("Gửi OTP");
             JButton passBtn = new JButton("Gửi 2FA Pass");
 
-            // Row 0: Phone
-            // FIX: Bật weightx = 1.0 cho cột chứa Textfield để nó mở rộng hết mức
             gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0;
             add(new JLabel("SĐT:"), gbc);
             gbc.gridx = 1; gbc.weightx = 1.0; add(phoneField, gbc);
             gbc.gridx = 2; gbc.weightx = 0; add(loginBtn, gbc);
 
-            // Row 1: OTP
             gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0;
             add(new JLabel("OTP:"), gbc);
             gbc.gridx = 1; gbc.weightx = 1.0; add(otpField, gbc);
             gbc.gridx = 2; gbc.weightx = 0; add(otpBtn, gbc);
 
-            // Row 2: 2FA
             gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0;
             add(new JLabel("2FA:"), gbc);
             gbc.gridx = 1; gbc.weightx = 1.0; add(passwordField, gbc);
             gbc.gridx = 2; gbc.weightx = 0; add(passBtn, gbc);
 
-            // Hành động
             loginBtn.addActionListener(e ->
                     telegramService.resetSessionAndLogin(phoneField.getText().replaceAll("^0", "+84"))
             );

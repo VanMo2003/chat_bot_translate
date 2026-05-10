@@ -15,7 +15,7 @@ public class LibreTranslateService {
         Map<String, String> languages = new LinkedHashMap<>();
         try {
             Request request = new Request.Builder()
-                    .url("http://sherman-hello-hosts-distributor.trycloudflare.com/languages")
+                    .url("https://divisions-embassy-way-gentle.trycloudflare.com//languages")
                     .get()
                     .build();
 
@@ -59,7 +59,7 @@ public class LibreTranslateService {
             );
 
             Request request = new Request.Builder()
-                    .url("https://sherman-hello-hosts-distributor.trycloudflare.com/translate")
+                    .url("https://divisions-embassy-way-gentle.trycloudflare.com//translate")
                     .post(body)
                     .addHeader("Content-Type", "application/json")
                     .build();

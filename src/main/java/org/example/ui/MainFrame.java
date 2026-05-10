@@ -144,12 +144,13 @@ public class MainFrame extends JFrame {
 
         searchLangField.setFont(unicodeFont);
         searchLangField.setToolTipText("Tìm NN");
-        searchLangField.setPreferredSize(new Dimension(150, 30));
+        searchLangField.setPreferredSize(new Dimension(120, 30));
 
         languageBox.setFont(unicodeFont);
-        languageBox.setPreferredSize(new Dimension(150, 30));
+        // ĐÃ SỬA: Tăng kích thước hộp chọn ngôn ngữ để hiển thị đủ chữ
+        languageBox.setPreferredSize(new Dimension(250, 30));
 
-        topPanel.add(new JLabel("Tìm ngôn ngữ:"));
+        topPanel.add(new JLabel("Tìm kiếm:"));
         topPanel.add(searchLangField);
         topPanel.add(languageBox);
         topPanel.add(reloadChatButton);
@@ -351,7 +352,6 @@ public class MainFrame extends JFrame {
         filterLanguages();
     }
 
-    // ĐÃ SỬA: Hàm lọc danh sách ngôn ngữ cho phép tìm tiếng Việt không dấu (vd: nhat -> Tiếng Nhật)
     private void filterLanguages() {
         String query = removeAccents(searchLangField.getText().toLowerCase());
         languageBox.removeAllItems();

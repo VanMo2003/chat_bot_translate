@@ -35,7 +35,7 @@ public class LibreTranslateService {
                     String code = obj.getString("code");
                     String englishName = obj.getString("name");
 
-                    // ĐÃ SỬA: Chuyển đổi tên ngôn ngữ sang Tiếng Việt
+                    // Lấy tên theo định dạng "Tiếng Việt (English)"
                     String viName = getVietnameseName(englishName);
 
                     languages.put(viName, code);
@@ -111,56 +111,60 @@ public class LibreTranslateService {
         return "";
     }
 
-    // ĐÃ THÊM: Bộ từ điển map tên ngôn ngữ sang Tiếng Việt
+    // ĐÃ SỬA: Danh sách map sang dạng "Tiếng Việt (English)"
     private String getVietnameseName(String englishName) {
         switch (englishName.toLowerCase().trim()) {
-            case "english": return "Tiếng Anh";
-            case "vietnamese": return "Tiếng Việt";
-            case "chinese": return "Tiếng Trung";
-            case "chinese (traditional)": return "Tiếng Trung (Phồn thể)";
-            case "japanese": return "Tiếng Nhật";
-            case "korean": return "Tiếng Hàn";
-            case "french": return "Tiếng Pháp";
-            case "spanish": return "Tiếng Tây Ban Nha";
-            case "russian": return "Tiếng Nga";
-            case "german": return "Tiếng Đức";
-            case "italian": return "Tiếng Ý";
-            case "portuguese": return "Tiếng Bồ Đào Nha";
-            case "arabic": return "Tiếng Ả Rập";
-            case "hindi": return "Tiếng Hindi";
-            case "thai": return "Tiếng Thái";
-            case "indonesian": return "Tiếng Indonesia";
-            case "malay": return "Tiếng Mã Lai";
-            case "dutch": return "Tiếng Hà Lan";
-            case "turkish": return "Tiếng Thổ Nhĩ Kỳ";
-            case "polish": return "Tiếng Ba Lan";
-            case "swedish": return "Tiếng Thụy Điển";
-            case "ukrainian": return "Tiếng Ukraina";
-            case "czech": return "Tiếng Séc";
-            case "danish": return "Tiếng Đan Mạch";
-            case "finnish": return "Tiếng Phần Lan";
-            case "greek": return "Tiếng Hy Lạp";
-            case "hungarian": return "Tiếng Hungary";
-            case "norwegian": return "Tiếng Na Uy";
-            case "romanian": return "Tiếng Romania";
-            case "slovak": return "Tiếng Slovakia";
-            case "bengali": return "Tiếng Bengal";
-            case "persian": return "Tiếng Ba Tư";
-            case "hebrew": return "Tiếng Do Thái";
-            case "tagalog": return "Tiếng Tagalog";
-            case "urdu": return "Tiếng Urdu";
-            case "catalan": return "Tiếng Catalan";
-            case "croatian": return "Tiếng Croatia";
-            case "esperanto": return "Tiếng Esperanto";
-            case "estonian": return "Tiếng Estonia";
-            case "latvian": return "Tiếng Latvia";
-            case "lithuanian": return "Tiếng Litva";
-            case "serbian": return "Tiếng Serbia";
-            case "slovenian": return "Tiếng Slovenia";
-            case "albanian": return "Tiếng Albania";
-            case "azerbaijani": return "Tiếng Azerbaijan";
-            case "bulgarian": return "Tiếng Bulgaria";
-            default: return englishName; // Nếu ngôn ngữ lạ chưa có trong từ điển thì giữ nguyên
+            case "english": return "Tiếng Anh (English)";
+            case "albanian": return "Tiếng Albania (Albanian)";
+            case "arabic": return "Tiếng Ả Rập (Arabic)";
+            case "azerbaijani": return "Tiếng Azerbaijan (Azerbaijani)";
+            case "basque": return "Tiếng Basque (Basque)";
+            case "bengali": return "Tiếng Bengal (Bengali)";
+            case "bulgarian": return "Tiếng Bulgaria (Bulgarian)";
+            case "catalan": return "Tiếng Catalan (Catalan)";
+            case "chinese": return "Tiếng Trung (Chinese)";
+            case "chinese (traditional)": return "Tiếng Trung Phồn thể (Chinese (traditional))";
+            case "czech": return "Tiếng Séc (Czech)";
+            case "danish": return "Tiếng Đan Mạch (Danish)";
+            case "dutch": return "Tiếng Hà Lan (Dutch)";
+            case "esperanto": return "Tiếng Esperanto (Esperanto)";
+            case "estonian": return "Tiếng Estonia (Estonian)";
+            case "finnish": return "Tiếng Phần Lan (Finnish)";
+            case "french": return "Tiếng Pháp (French)";
+            case "galician": return "Tiếng Galician (Galician)";
+            case "german": return "Tiếng Đức (German)";
+            case "greek": return "Tiếng Hy Lạp (Greek)";
+            case "hebrew": return "Tiếng Do Thái (Hebrew)";
+            case "hindi": return "Tiếng Hindi (Hindi)";
+            case "hungarian": return "Tiếng Hungary (Hungarian)";
+            case "indonesian": return "Tiếng Indonesia (Indonesian)";
+            case "irish": return "Tiếng Ireland (Irish)";
+            case "italian": return "Tiếng Ý (Italian)";
+            case "japanese": return "Tiếng Nhật (Japanese)";
+            case "korean": return "Tiếng Hàn (Korean)";
+            case "kyrgyz": return "Tiếng Kyrgyz (Kyrgyz)";
+            case "latvian": return "Tiếng Latvia (Latvian)";
+            case "lithuanian": return "Tiếng Litva (Lithuanian)";
+            case "malay": return "Tiếng Mã Lai (Malay)";
+            case "norwegian": return "Tiếng Na Uy (Norwegian)";
+            case "persian": return "Tiếng Ba Tư (Persian)";
+            case "polish": return "Tiếng Ba Lan (Polish)";
+            case "portuguese": return "Tiếng Bồ Đào Nha (Portuguese)";
+            case "portuguese (brazil)": return "Tiếng Bồ Đào Nha Brazil (Portuguese (Brazil))";
+            case "romanian": return "Tiếng Romania (Romanian)";
+            case "russian": return "Tiếng Nga (Russian)";
+            case "slovak": return "Tiếng Slovakia (Slovak)";
+            case "slovenian": return "Tiếng Slovenia (Slovenian)";
+            case "spanish": return "Tiếng Tây Ban Nha (Spanish)";
+            case "swedish": return "Tiếng Thụy Điển (Swedish)";
+            case "tagalog": return "Tiếng Tagalog (Tagalog)";
+            case "thai": return "Tiếng Thái (Thai)";
+            case "turkish": return "Tiếng Thổ Nhĩ Kỳ (Turkish)";
+            case "ukranian": // Theo JSON của bạn
+            case "ukrainian": return "Tiếng Ukraina (Ukrainian)";
+            case "urdu": return "Tiếng Urdu (Urdu)";
+            case "vietnamese": return "Tiếng Việt (Vietnamese)";
+            default: return englishName;
         }
     }
 }

@@ -12,12 +12,14 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.HyperlinkEvent;
 import java.awt.*;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 public class MainFrame extends JFrame {
 
@@ -241,7 +243,6 @@ public class MainFrame extends JFrame {
         customerList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 Customer selected = customerList.getSelectedValue();
-                // ĐÃ SỬA: Chỉ load nếu click vào người khác, tránh bị chớp khung chat khi tự động sắp xếp lại danh sách
                 if (selected != null && selected.getChatId() != currentChatId) {
                     System.out.println("[MainFrame] Chọn User trên List...");
                     loadSelectedChat();
@@ -288,7 +289,6 @@ public class MainFrame extends JFrame {
             System.out.println("[MainFrame] Xử lý hiển thị tin nhắn mới. ID: " + msgId + " từ ChatID: " + chatId);
 
             SwingUtilities.invokeLater(() -> {
-                // Xử lý chèn tin nhắn vào Cache (nếu chat đó từng được mở)
                 if (chatHtmlCache.containsKey(chatId)) {
                     appendBubbleToBuilder(chatId, msgId, sender, messageText, false);
                     if ("Khách".equals(sender)) {
@@ -297,7 +297,6 @@ public class MainFrame extends JFrame {
                     }
                 }
 
-                // ĐÃ THÊM: Cập nhật Danh sách & đẩy lên đầu
                 moveToTopOrAddNewUser(chatId, sender);
             });
         });
@@ -305,7 +304,6 @@ public class MainFrame extends JFrame {
         telegramService.init();
     }
 
-    // ĐÃ THÊM: Hàm xử lý Đẩy người dùng lên đầu danh sách hoặc thêm người lạ
     private void moveToTopOrAddNewUser(long chatId, String sender) {
         Customer found = null;
         for (Customer c : allCustomers) {
@@ -316,13 +314,11 @@ public class MainFrame extends JFrame {
         }
 
         if (found != null) {
-            // Đã có trong danh sách -> Nhấc lên đầu
             System.out.println("[MainFrame] Đẩy User có ChatID " + chatId + " lên đầu danh sách.");
             allCustomers.remove(found);
             allCustomers.add(0, found);
             updateUnreadAndRefreshList(chatId, sender);
         } else {
-            // Là người lạ chưa từng xuất hiện -> Gọi API hỏi tên
             System.out.println("[MainFrame] Nhận được tin nhắn từ người lạ ChatID " + chatId + ". Đang gọi API lấy tên...");
             telegramService.getChatTitle(chatId, title -> {
                 SwingUtilities.invokeLater(() -> {
@@ -335,16 +331,13 @@ public class MainFrame extends JFrame {
         }
     }
 
-    // ĐÃ THÊM: Hàm phụ trợ cập nhật số tin nhắn chưa đọc và render lại List giữ nguyên focus
     private void updateUnreadAndRefreshList(long chatId, String sender) {
         if (chatId != currentChatId && "Khách".equals(sender)) {
             unreadCounts.put(chatId, unreadCounts.getOrDefault(chatId, 0) + 1);
         }
 
-        // Ghi nhớ người đang chọn để không bị nhảy lung tung khi cập nhật
         Customer selected = customerList.getSelectedValue();
-
-        filterUsers(); // Rebuild lại customerListModel từ allCustomers đã được xếp lại
+        filterUsers();
 
         if (selected != null) {
             customerList.setSelectedValue(selected, true);
@@ -384,11 +377,21 @@ public class MainFrame extends JFrame {
         }));
     }
 
+    // ĐÃ THÊM: Hàm loại bỏ dấu Tiếng Việt (và chữ Đ) để tìm kiếm không dấu
+    private String removeAccents(String text) {
+        if (text == null) return "";
+        String normalized = Normalizer.normalize(text, Normalizer.Form.NFD);
+        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        return pattern.matcher(normalized).replaceAll("").replace('đ', 'd').replace('Đ', 'D');
+    }
+
+    // ĐÃ SỬA: Lọc người dùng sử dụng chuỗi không dấu
     private void filterUsers() {
-        String query = searchUserField.getText().toLowerCase();
+        String query = removeAccents(searchUserField.getText().toLowerCase());
         customerListModel.clear();
         for (Customer c : allCustomers) {
-            if (c.getName().toLowerCase().contains(query)) {
+            String nameNormalized = removeAccents(c.getName().toLowerCase());
+            if (nameNormalized.contains(query)) {
                 customerListModel.addElement(c);
             }
         }

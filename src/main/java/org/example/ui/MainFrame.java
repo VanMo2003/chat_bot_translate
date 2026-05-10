@@ -26,6 +26,9 @@ public class MainFrame extends JFrame {
     // Dữ liệu
     private final Map<String, String> languageMap = new LinkedHashMap<>();
     private final List<Customer> allCustomers = new ArrayList<>();
+    // ĐÃ THÊM: Bộ đếm tin nhắn chưa đọc theo chatId
+    private final Map<Long, Integer> unreadCounts = new LinkedHashMap<>();
+
     private long currentChatId = 0;
     private StringBuilder chatHtmlBuilder = new StringBuilder();
 
@@ -93,6 +96,32 @@ public class MainFrame extends JFrame {
 
         customerList.setFont(unicodeFont);
         customerList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        // ĐÃ THÊM: Tùy chỉnh cách hiển thị User trong JList để báo tin nhắn chưa đọc
+        customerList.setCellRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof Customer) {
+                    Customer customer = (Customer) value;
+                    int unread = unreadCounts.getOrDefault(customer.getChatId(), 0);
+
+                    // Escaping HTML để tránh lỗi hiển thị nếu tên có dấu < >
+                    String displayText = value.toString().replace("<", "&lt;").replace(">", "&gt;");
+
+                    if (unread > 0) {
+                        setText("<html><b>[" + unread + "] " + displayText + "</b></html>");
+                        if (!isSelected) {
+                            setForeground(new Color(200, 0, 0)); // Màu đỏ cảnh báo
+                        }
+                    } else {
+                        setText(displayText);
+                    }
+                }
+                return c;
+            }
+        });
+
         JScrollPane scrollPane = new JScrollPane(customerList);
 
         panel.add(topPanel, BorderLayout.NORTH);
@@ -211,8 +240,19 @@ public class MainFrame extends JFrame {
 
     private void initTelegram() throws Client.ExecutionException {
         telegramService.setMessageListener((chatId, sender, message) -> {
-            if (chatId != currentChatId) return;
-            SwingUtilities.invokeLater(() -> appendChatMessage(sender, message));
+            SwingUtilities.invokeLater(() -> {
+                // ĐÃ SỬA: Phân biệt người gửi để tăng bộ đếm tin nhắn
+                if (chatId == currentChatId) {
+                    appendChatMessage(sender, message);
+                } else {
+                    // Chỉ tăng thông báo nếu tin nhắn mới là từ phía Khách gửi tới
+                    if ("Khách".equals(sender)) {
+                        int count = unreadCounts.getOrDefault(chatId, 0);
+                        unreadCounts.put(chatId, count + 1);
+                        customerList.repaint(); // Cập nhật lại UI danh sách
+                    }
+                }
+            });
         });
 
         telegramService.setHistoryListener((chatId, sender, message) -> {
@@ -268,6 +308,11 @@ public class MainFrame extends JFrame {
         if (customer == null) return;
 
         currentChatId = customer.getChatId();
+
+        // ĐÃ THÊM: Xóa thông báo tin nhắn chưa đọc khi nhấn vào xem
+        unreadCounts.put(currentChatId, 0);
+        customerList.repaint();
+
         telegramService.loadChatHistory(currentChatId, this::resetChatHtml);
     }
 
@@ -289,7 +334,6 @@ public class MainFrame extends JFrame {
         }
     }
 
-    // Đã thay đổi: Dịch từ tin nhắn mới nhất
     private void translateAllChatToVietnamese() {
         if (currentChatId == 0) return;
 
@@ -302,7 +346,6 @@ public class MainFrame extends JFrame {
             new Thread(() -> {
                 SwingUtilities.invokeLater(this::resetChatHtml);
 
-                // Mảng tin nhắn của Telegram: index 0 là tin mới nhất, length-1 là cũ nhất
                 for (int i = 0; i < messages.messages.length; i++) {
                     TdApi.Message message = messages.messages[i];
                     if (message.content instanceof TdApi.MessageText textMessage) {
@@ -312,7 +355,6 @@ public class MainFrame extends JFrame {
                         String translatedMsg = translateService.translateText(text, "auto", "vi");
 
                         SwingUtilities.invokeLater(() -> {
-                            // Gọi hàm prepend để đẩy tin cũ lên trên, ghim tin mới nhất ở dưới
                             prependChatMessage(sender, translatedMsg);
                         });
                     }
@@ -368,7 +410,6 @@ public class MainFrame extends JFrame {
         SwingUtilities.invokeLater(() -> chatPane.setCaretPosition(chatPane.getDocument().getLength()));
     }
 
-    // Đã thêm: Hàm chèn tin nhắn lên vị trí trên cùng
     private void prependChatMessage(String sender, String text) {
         String escapedText = text.replace("\n", "<br>").replace("<", "&lt;").replace(">", "&gt;");
         StringBuilder bubble = new StringBuilder();
@@ -390,7 +431,6 @@ public class MainFrame extends JFrame {
                     .append("</span></div>");
         }
 
-        // Cắt chính xác vị trí ngay sau thẻ <body>
         String anchor = "margin: 10px;'>";
         int insertIndex = chatHtmlBuilder.indexOf(anchor);
 
@@ -401,13 +441,9 @@ public class MainFrame extends JFrame {
         }
 
         chatPane.setText(chatHtmlBuilder.toString() + "</body></html>");
-        // Giữ vị trí scroll cho phép xem tin mới nhất dễ hơn
         SwingUtilities.invokeLater(() -> chatPane.setCaretPosition(chatPane.getDocument().getLength()));
     }
 
-    // ======================================
-    // LỚP DIALOG ĐĂNG NHẬP (INNER CLASS)
-    // ======================================
     class LoginDialog extends JDialog {
         private JTextField phoneField = new JTextField();
         private JTextField otpField = new JTextField();

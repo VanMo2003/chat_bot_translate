@@ -31,9 +31,10 @@ public class MainFrame extends JFrame {
     private final List<Customer> allCustomers = new ArrayList<>();
     private final Map<Long, Integer> unreadCounts = new LinkedHashMap<>();
 
-    // Bộ nhớ đệm lưu HTML và nội dung gốc để phục vụ "Dịch độc lập"
+    // Bộ nhớ đệm lưu HTML, nội dung gốc và người gửi để phục vụ "Dịch độc lập"
     private final Map<Long, StringBuilder> chatHtmlCache = new HashMap<>();
     private final Map<Long, String> originalMessages = new ConcurrentHashMap<>();
+    private final Map<Long, String> messageSenders = new ConcurrentHashMap<>(); // ĐÃ THÊM: Lưu người gửi
     private long currentChatId = 0;
 
     // UI Left Panel
@@ -372,35 +373,36 @@ public class MainFrame extends JFrame {
         StringBuilder builder = chatHtmlCache.get(targetChatId);
         if (builder == null) return;
 
-        // ĐÃ SỬA: Thay thế các ký tự HTML (<, >) trước, sau đó mới đổi \n thành <br>
         String escapedText = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
         StringBuilder bubble = new StringBuilder();
 
-        if (sender.equals("Tôi")) {
-            // ĐÃ THÊM: Lưu tin nhắn và tạo nút dịch cho cả "Tôi"
-            originalMessages.put(messageId, text);
-            String linkHtml = "<div id='link_" + messageId + "' style='margin-top: 5px; text-align: left;'><a href='trans:" + targetChatId + ":" + messageId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
-
-            bubble.append("<div style='text-align: right; margin-bottom: 8px;'>")
-                    .append("<span style='background-color: #DCF8C6; padding: 8px 12px; border-radius: 15px; display: inline-block; max-width: 70%; text-align: left;'>")
-                    .append(escapedText)
-                    .append(linkHtml)
-                    .append("</span></div>");
-
-        } else if (sender.equals("Hệ thống")) {
+        if (sender.equals("Hệ thống")) {
             bubble.append("<div style='text-align: center; margin-bottom: 8px; color: gray;'>")
                     .append(escapedText)
                     .append("</div>");
         } else {
+            // ĐÃ SỬA: Lưu tin nhắn và nhận biết người gửi
             originalMessages.put(messageId, text);
-            String linkHtml = "<div id='link_" + messageId + "' style='margin-top: 5px;'><a href='trans:" + targetChatId + ":" + messageId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
+            messageSenders.put(messageId, sender);
 
-            bubble.append("<div style='text-align: left; margin-bottom: 8px;'>")
-                    .append("<span style='background-color: #F1F0F0; padding: 8px 12px; border-radius: 15px; display: inline-block; max-width: 70%;'>")
-                    .append("<b>").append(sender).append("</b><br>")
-                    .append(escapedText)
-                    .append(linkHtml)
-                    .append("</span></div>");
+            // Căn lề Nút Dịch tùy thuộc vào người gửi
+            String align = sender.equals("Tôi") ? "right" : "left";
+            String linkHtml = "<div id='link_" + messageId + "' style='margin-top: 5px; text-align: " + align + ";'><a href='trans:" + targetChatId + ":" + messageId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
+
+            if (sender.equals("Tôi")) {
+                bubble.append("<div style='text-align: right; margin-bottom: 8px;'>")
+                        .append("<span style='background-color: #DCF8C6; padding: 8px 12px; border-radius: 15px; display: inline-block; max-width: 70%; text-align: left;'>")
+                        .append(escapedText)
+                        .append(linkHtml)
+                        .append("</span></div>");
+            } else {
+                bubble.append("<div style='text-align: left; margin-bottom: 8px;'>")
+                        .append("<span style='background-color: #F1F0F0; padding: 8px 12px; border-radius: 15px; display: inline-block; max-width: 70%; text-align: left;'>")
+                        .append("<b>").append(sender).append("</b><br>")
+                        .append(escapedText)
+                        .append(linkHtml)
+                        .append("</span></div>");
+            }
         }
 
         if (isPrepend) {
@@ -430,17 +432,16 @@ public class MainFrame extends JFrame {
         StringBuilder builder = chatHtmlCache.get(chatId);
         if (builder == null) return;
 
-        String linkHtml = "<div id='link_" + msgId + "' style='margin-top: 5px; text-align: left;'><a href='trans:" + chatId + ":" + msgId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
-        String linkHtmlKhach = "<div id='link_" + msgId + "' style='margin-top: 5px;'><a href='trans:" + chatId + ":" + msgId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
-        String loadingHtml = "<div id='link_" + msgId + "' style='margin-top: 5px;'><i style='color: gray; font-size: 12px;'>Đang dịch...</i></div>";
+        // ĐÃ SỬA: Lấy đúng Align của HTML dựa vào thông tin Người gửi
+        String sender = messageSenders.getOrDefault(msgId, "Khách");
+        String align = sender.equals("Tôi") ? "right" : "left";
 
-        // Thay nút Dịch thành dòng chữ Đang dịch
+        String linkHtml = "<div id='link_" + msgId + "' style='margin-top: 5px; text-align: " + align + ";'><a href='trans:" + chatId + ":" + msgId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
+        String loadingHtml = "<div id='link_" + msgId + "' style='margin-top: 5px; text-align: " + align + ";'><i style='color: gray; font-size: 12px;'>Đang dịch...</i></div>";
+
         int idx = builder.indexOf(linkHtml);
-        if (idx == -1) idx = builder.indexOf(linkHtmlKhach); // Dự phòng trường hợp thẻ div khác chút
-
         if (idx != -1) {
-            int length = builder.indexOf(linkHtml) != -1 ? linkHtml.length() : linkHtmlKhach.length();
-            builder.replace(idx, idx + length, loadingHtml);
+            builder.replace(idx, idx + linkHtml.length(), loadingHtml);
             if (chatId == currentChatId) {
                 int currentCaret = chatPane.getCaretPosition();
                 chatPane.setText(builder.toString() + "</body></html>");
@@ -450,11 +451,10 @@ public class MainFrame extends JFrame {
 
         new Thread(() -> {
             String translated = translateService.translateText(originalText, "auto", "vi");
-
-            // ĐÃ SỬA: Đảo thứ tự replace để <br> hoạt động
             String escapedTranslated = translated.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
 
-            String resultHtml = "<div style='margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 5px; color: #b30000; font-size: 13.5px; text-align: left;'>" + escapedTranslated + "</div>";
+            // ĐÃ SỬA: Căn lề của đoạn text dịch sẽ bám theo Align của bong bóng tin nhắn gốc
+            String resultHtml = "<div style='margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 5px; color: #b30000; font-size: 13.5px; text-align: " + align + ";'>" + escapedTranslated + "</div>";
 
             SwingUtilities.invokeLater(() -> {
                 StringBuilder b = chatHtmlCache.get(chatId);

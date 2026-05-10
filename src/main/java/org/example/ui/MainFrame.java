@@ -347,6 +347,7 @@ public class MainFrame extends JFrame {
     private void loadLanguages() {
         System.out.println("[MainFrame] Đang nạp danh sách ngôn ngữ vào Giao Diện...");
         languageMap.clear();
+//        translateService.runTranslationSelfTest();
         languageMap.putAll(translateService.getSupportedLanguages());
         filterLanguages();
     }

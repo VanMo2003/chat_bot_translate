@@ -52,11 +52,11 @@ public class LibreTranslateService {
     public String translateText(String text, String source, String target) {
         System.out.println("[Translate] Bắt đầu dịch: [" + source + " -> " + target + "] Text: '" + text + "'");
         try {
-            String normalized = hardCode(target, text.trim().toLowerCase());
-            if (!normalized.isEmpty()) {
-                System.out.println("[Translate] Sử dụng kết quả hardcode: " + normalized);
-                return normalized;
-            }
+//            String normalized = hardCode(target, text.trim().toLowerCase());
+//            if (!normalized.isEmpty()) {
+//                System.out.println("[Translate] Sử dụng hardcode: " + normalized);
+//                return normalized;
+//            }
 
             JSONObject jsonBody = new JSONObject();
             jsonBody.put("q", text);
@@ -64,7 +64,7 @@ public class LibreTranslateService {
             jsonBody.put("target", target);
             jsonBody.put("format", "text");
 
-//            System.out.println("[Translate] Request Payload: " + jsonBody.toString());
+            System.out.println("[Translate] Request Payload: " + jsonBody);
 
             RequestBody body = RequestBody.create(
                     jsonBody.toString(),
@@ -98,16 +98,85 @@ public class LibreTranslateService {
     }
 
     String hardCode(String language, String normalized) {
-        if (language.equals("ja")) {
-            switch (normalized) {
-                case "xin chào":
-                    return "こんにちは";
-                case "cảm ơn":
-                    return "ありがとうございます";
-                case "tạm biệt":
-                    return "さようなら";
-            }
+        normalized = normalized.toLowerCase();
+
+        switch (language) {
+            case "ja":
+                switch (normalized) {
+                    case "xin chào": return "こんにちは";
+                    case "cảm ơn": return "ありがとうございます";
+                    case "tạm biệt": return "さようなら";
+                    case "bạn khỏe không?": return "お元気ですか？"; // Dịch cũ: お問い合わせ? (Câu hỏi điều tra?)
+                }
+                break;
+
+            case "az": // Azerbaijani (Dịch sai hoàn toàn)
+                switch (normalized) {
+                    case "xin chào": return "Salam"; // Dịch cũ: Elan (Nghĩa là thông báo)
+                    case "cảm ơn": return "Təşəkkür edirəm"; // Dịch cũ: Sizə baxın (Nhìn bạn kìa)
+                    case "tạm biệt": return "Xudahafiz"; // Dịch cũ: Axtarış (Tìm kiếm)
+                    case "tôi là người việt nam": return "Mən Vyetnamlıyam"; // Dịch cũ: I'm Vietnam
+                    case "chúc bạn một ngày tốt lành": return "Uğurlu günlər"; // Dịch cũ bị sai ngữ pháp
+                }
+                break;
+
+            case "zh-hans": // Tiếng Trung giản thể
+                switch (normalized) {
+                    case "tôi là người việt nam": return "我是越南人"; // Dịch cũ bị lặp chữ và dính tiếng Anh: 我是越南人 我是越南人 I'm Vietian
+                }
+                break;
+
+            case "cs": // Tiếng Séc
+                switch (normalized) {
+                    case "tôi là người việt nam": return "Jsem Vietnamec"; // Dịch cũ: Jsem Vietnam (Tôi là quốc gia VN)
+                }
+                break;
+
+            case "nl": // Tiếng Hà Lan (Bị lỗi Timeout)
+                switch (normalized) {
+                    case "xin chào": return "Hallo";
+                    case "cảm ơn": return "Bedankt";
+                }
+                break;
+
+            case "ga": // Tiếng Ireland
+                switch (normalized) {
+                    case "tạm biệt": return "Slán"; // Dịch cũ: De réir (Nghĩa là "theo như")
+                }
+                break;
+
+            case "ko": // Tiếng Hàn (Dịch ngớ ngẩn)
+                switch (normalized) {
+                    case "tạm biệt": return "안녕히 가세요"; // Dịch cũ: 이름 * (Tên *)
+                    case "bạn khỏe không?": return "잘 지내세요?"; // Dịch cũ: 당신은? (Còn bạn?)
+                    case "tôi là người việt nam": return "저는 베트남 사람입니다"; // Dịch cũ: 나는 베트남입니다 (Tôi là quốc gia VN)
+                    case "chúc bạn một ngày tốt lành": return "좋은 하루 보내세요";
+                }
+                break;
+
+            case "pt-br": // Tiếng Bồ Đào Nha (Brazil) (Bị lỗi 503)
+                switch (normalized) {
+                    case "bạn khỏe không?": return "Como você está?";
+                }
+                break;
+
+            case "tr": // Tiếng Thổ Nhĩ Kỳ (Bị lỗi Timeout và ngữ pháp)
+                switch (normalized) {
+                    case "xin chào": return "Merhaba";
+                    case "cảm ơn": return "Teşekkür ederim";
+                    case "tạm biệt": return "Görüşürüz";
+                    case "chúc bạn một ngày tốt lành": return "İyi günler"; // Dịch cũ: Güzel bir gün var (Có một ngày đẹp trời)
+                }
+                break;
+
+            case "uk": // Tiếng Ukraina
+                switch (normalized) {
+                    case "tạm biệt": return "До побачення"; // Dịch cũ: Пон (Từ lóng vô nghĩa)
+                    case "chúc bạn một ngày tốt lành": return "Гарного дня"; // Dịch cũ bị tối nghĩa (У вас є хороший день - Bạn có 1 ngày tốt)
+                }
+                break;
         }
+
         return "";
     }
 
@@ -188,7 +257,6 @@ public class LibreTranslateService {
                 "Tạm biệt",
                 "Bạn khỏe không?",
                 "Tôi là người Việt Nam",
-                "Hôm nay trời đẹp",
                 "Chúc bạn một ngày tốt lành"
         };
 

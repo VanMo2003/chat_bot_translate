@@ -59,7 +59,7 @@ public class MainFrame extends JFrame {
 
         initUI();
 
-        // Đã sửa: Load user tự động khi Auth báo Ready
+        // Load user tự động khi Auth báo Ready
         telegramService.setOnAuthReady(() -> SwingUtilities.invokeLater(this::loadCustomers));
 
         initTelegram();
@@ -282,7 +282,6 @@ public class MainFrame extends JFrame {
 
         currentChatId = customer.getChatId();
 
-        // Đã sửa: Pass resetChatHtml dạng callback để chỉ clear UI sau khi Server đã tải xong dữ liệu
         telegramService.loadChatHistory(currentChatId, this::resetChatHtml);
     }
 
@@ -336,7 +335,7 @@ public class MainFrame extends JFrame {
         if (text == null || text.isBlank() || currentChatId == 0) return;
 
         telegramService.sendMessage(currentChatId, text);
-        appendChatMessage("Tôi", text);
+
         messageField.setText("");
     }
 
@@ -345,7 +344,7 @@ public class MainFrame extends JFrame {
         if (text == null || text.isBlank() || currentChatId == 0) return;
 
         telegramService.sendMessage(currentChatId, text);
-        appendChatMessage("Tôi", text);
+
         translatedField.setText("");
         messageField.setText("");
     }

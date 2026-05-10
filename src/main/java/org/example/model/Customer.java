@@ -9,6 +9,8 @@ public class Customer {
     // en, zh, ja, ko...
     private String languageCode;
 
+    public Customer() {}
+
     public Customer(
             long chatId,
             String name,

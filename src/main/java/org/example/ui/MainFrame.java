@@ -21,13 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class MainFrame extends JFrame {
 
-    // Font Noto Sans cho các thành phần giao diện cơ bản
     private final Font unicodeFont = FontUtils.getFont(15f);
-
-    // ĐÃ THÊM: Font đa ngôn ngữ của hệ điều hành dành riêng cho ô nhập liệu để không bị lỗi ô vuông
     private final Font inputFont = new Font("Segoe UI", Font.PLAIN, 15);
-
-    // ĐÃ SỬA: Chuỗi CSS kết hợp nhiều Font. Nó sẽ ưu tiên Noto Sans, nếu thiếu chữ (như tiếng Thái) sẽ tự lấy Noto Sans Thai.
     private final String HTML_FONT_CSS = "font-family: 'Noto Sans', 'Noto Sans Thai', 'Segoe UI', Tahoma, sans-serif;";
 
     private final TelegramService telegramService = new TelegramService();
@@ -41,6 +36,7 @@ public class MainFrame extends JFrame {
     private final Map<Long, String> originalMessages = new ConcurrentHashMap<>();
     private final Map<Long, String> messageSenders = new ConcurrentHashMap<>();
     private long currentChatId = 0;
+    private Customer currentUser = new Customer();
 
     private final DefaultListModel<Customer> customerListModel = new DefaultListModel<>();
     private final JList<Customer> customerList = new JList<>(customerListModel);
@@ -61,6 +57,7 @@ public class MainFrame extends JFrame {
     private final JButton sendTranslatedButton = new JButton("Gửi bản dịch");
 
     public MainFrame() throws Client.ExecutionException {
+        System.out.println("[MainFrame] Khởi tạo Ứng dụng...");
         setTitle("Telegram Chat Bot Translate");
         setSize(1200, 800);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -68,13 +65,18 @@ public class MainFrame extends JFrame {
 
         initUI();
 
-        telegramService.setOnAuthReady(() -> SwingUtilities.invokeLater(this::loadCustomers));
+        telegramService.setOnAuthReady(() -> {
+            System.out.println("[MainFrame] Nhận tín hiệu AuthReady, bắt đầu tải Customers...");
+            SwingUtilities.invokeLater(this::loadCustomers);
+        });
 
         initTelegram();
         loadLanguages();
+        System.out.println("[MainFrame] Hoàn tất khởi tạo cơ bản.");
     }
 
     private void initUI() {
+        System.out.println("[MainFrame] Đang vẽ UI...");
         setLayout(new BorderLayout());
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
@@ -170,6 +172,7 @@ public class MainFrame extends JFrame {
                     String[] parts = desc.split(":");
                     long chatId = Long.parseLong(parts[1]);
                     long msgId = Long.parseLong(parts[2]);
+                    System.out.println("[MainFrame] Click Nút Dịch cho MsgID: " + msgId + " ở ChatID: " + chatId);
                     translateSingleMessage(chatId, msgId);
                 }
             }
@@ -182,7 +185,6 @@ public class MainFrame extends JFrame {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.BOTH;
 
-        // ĐÃ SỬA: Set font nhập liệu thành Segoe UI để gõ được Tiếng Thái, Ả Rập...
         messageField.setFont(inputFont);
         messageField.setLineWrap(true);
         messageField.setWrapStyleWord(true);
@@ -215,11 +217,15 @@ public class MainFrame extends JFrame {
 
     private void setupActions() {
         showLoginButton.addActionListener(e -> {
+            System.out.println("[MainFrame] Mở Form Đăng Nhập...");
             LoginDialog dialog = new LoginDialog(this, unicodeFont);
             dialog.setVisible(true);
         });
 
-        refreshCustomerButton.addActionListener(e -> loadCustomers());
+        refreshCustomerButton.addActionListener(e -> {
+            System.out.println("[MainFrame] Click Button Tải Lại Danh Sách User.");
+            loadCustomers();
+        });
 
         searchUserField.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { filterUsers(); }
@@ -235,25 +241,39 @@ public class MainFrame extends JFrame {
 
         customerList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
+                System.out.println("[MainFrame] Chọn User trên List...");
                 loadSelectedChat();
             }
         });
 
         reloadChatButton.addActionListener(e -> {
+            System.out.println("[MainFrame] Click Button Xóa Cache & Reload Chat.");
             if (currentChatId != 0) {
                 chatHtmlCache.remove(currentChatId);
                 loadHistory(currentChatId);
             }
         });
 
-        translateButton.addActionListener(e -> translateMessage());
-        sendOriginalButton.addActionListener(e -> sendOriginal());
-        sendTranslatedButton.addActionListener(e -> sendTranslated());
+        translateButton.addActionListener(e -> {
+            System.out.println("[MainFrame] Click Button Dịch Ô Text.");
+            translateMessage();
+        });
+
+        sendOriginalButton.addActionListener(e -> {
+            System.out.println("[MainFrame] Click Button Gửi Bản Gốc.");
+            sendOriginal();
+        });
+
+        sendTranslatedButton.addActionListener(e -> {
+            System.out.println("[MainFrame] Click Button Gửi Bản Dịch.");
+            sendTranslated();
+        });
 
         messageField.getInputMap().put(KeyStroke.getKeyStroke("ctrl ENTER"), "translate");
         messageField.getActionMap().put("translate", new AbstractAction() {
             @Override
             public void actionPerformed(java.awt.event.ActionEvent e) {
+                System.out.println("[MainFrame] Phím tắt Ctrl+Enter: Dịch.");
                 translateMessage();
             }
         });
@@ -262,12 +282,14 @@ public class MainFrame extends JFrame {
     private void initTelegram() throws Client.ExecutionException {
         telegramService.setMessageListener((chatId, sender, messageText) -> {
             long msgId = System.nanoTime();
+            System.out.println("[MainFrame] Xử lý hiển thị tin nhắn mới. ID: " + msgId);
 
             SwingUtilities.invokeLater(() -> {
                 if (chatHtmlCache.containsKey(chatId)) {
                     appendBubbleToBuilder(chatId, msgId, sender, messageText, false);
 
                     if ("Khách".equals(sender)) {
+                        System.out.println("[MainFrame] Kích hoạt auto dịch cho Khách gửi, MsgID: " + msgId);
                         translateSingleMessage(chatId, msgId);
                     }
                 }
@@ -276,6 +298,7 @@ public class MainFrame extends JFrame {
                     int count = unreadCounts.getOrDefault(chatId, 0);
                     unreadCounts.put(chatId, count + 1);
                     customerList.repaint();
+                    System.out.println("[MainFrame] Tăng đếm tin nhắn chưa đọc cho ChatID: " + chatId + ". Total: " + (count+1));
                 }
             });
         });
@@ -284,6 +307,7 @@ public class MainFrame extends JFrame {
     }
 
     private void loadLanguages() {
+        System.out.println("[MainFrame] Đang nạp danh sách ngôn ngữ vào Giao Diện...");
         languageMap.clear();
         languageMap.putAll(translateService.getSupportedLanguages());
         filterLanguages();
@@ -301,6 +325,7 @@ public class MainFrame extends JFrame {
     }
 
     private void loadCustomers() {
+        System.out.println("[MainFrame] Bắt đầu lấy thông tin Khách hàng từ Telegram...");
         refreshCustomerButton.setEnabled(false);
         refreshCustomerButton.setText("Đang tải...");
 
@@ -310,6 +335,7 @@ public class MainFrame extends JFrame {
             filterUsers();
             refreshCustomerButton.setEnabled(true);
             refreshCustomerButton.setText("🔄 Tải lại User");
+            System.out.println("[MainFrame] Đã làm mới UI Danh sách người dùng (" + customers.size() + ").");
         }));
     }
 
@@ -328,6 +354,7 @@ public class MainFrame extends JFrame {
         if (customer == null) return;
 
         currentChatId = customer.getChatId();
+        System.out.println("[MainFrame] Người dùng đã chọn ChatID: " + currentChatId + " - " + customer.getName());
 
         unreadCounts.put(currentChatId, 0);
         customerList.repaint();
@@ -337,12 +364,14 @@ public class MainFrame extends JFrame {
 
     private void loadHistory(long chatId) {
         if (chatHtmlCache.containsKey(chatId)) {
+            System.out.println("[MainFrame] Lấy HTML từ CACHE cho ChatID: " + chatId);
             StringBuilder builder = chatHtmlCache.get(chatId);
             chatPane.setText(builder.toString() + "</body></html>");
             SwingUtilities.invokeLater(() -> chatPane.setCaretPosition(chatPane.getDocument().getLength()));
             return;
         }
 
+        System.out.println("[MainFrame] Đang yêu cầu API History cho ChatID: " + chatId);
         StringBuilder newBuilder = new StringBuilder();
         newBuilder.append("<html><body style=\"").append(HTML_FONT_CSS).append(" font-size: 14px; margin: 10px;\">");
         chatHtmlCache.put(chatId, newBuilder);
@@ -353,6 +382,7 @@ public class MainFrame extends JFrame {
 
         telegramService.getRawChatHistory(chatId, messages -> {
             SwingUtilities.invokeLater(() -> {
+                System.out.println("[MainFrame] Bắt đầu render " + messages.messages.length + " tin nhắn lên HTML...");
                 if (messages.messages.length == 0) {
                     if (chatId == currentChatId) {
                         chatPane.setText(newBuilder.toString() + "</body></html>");
@@ -368,6 +398,7 @@ public class MainFrame extends JFrame {
                         appendBubbleToBuilder(chatId, message.id, sender, text, true);
                     }
                 }
+                System.out.println("[MainFrame] Render lịch sử hoàn tất.");
             });
         });
     }
@@ -427,8 +458,12 @@ public class MainFrame extends JFrame {
     }
 
     private void translateSingleMessage(long chatId, long msgId) {
+        System.out.println("[MainFrame] Bắt đầu dịch độc lập cho MsgID: " + msgId);
         String originalText = originalMessages.get(msgId);
-        if (originalText == null) return;
+        if (originalText == null) {
+            System.err.println("[MainFrame] Lỗi: Không tìm thấy Text gốc cho MsgID: " + msgId);
+            return;
+        }
 
         StringBuilder builder = chatHtmlCache.get(chatId);
         if (builder == null) return;
@@ -461,6 +496,7 @@ public class MainFrame extends JFrame {
                     int i = b.indexOf(loadingHtml);
                     if (i != -1) {
                         b.replace(i, i + loadingHtml.length(), resultHtml);
+                        System.out.println("[MainFrame] Đã đính bản dịch vào UI cho MsgID: " + msgId);
                         if (chatId == currentChatId) {
                             int caret = chatPane.getCaretPosition();
                             chatPane.setText(b.toString() + "</body></html>");
@@ -473,6 +509,7 @@ public class MainFrame extends JFrame {
     }
 
     private void translateMessage() {
+        System.out.println("[MainFrame] Đang gọi API dịch văn bản chuẩn bị gửi...");
         try {
             String text = messageField.getText();
             if (text == null || text.isBlank()) return;
@@ -485,12 +522,14 @@ public class MainFrame extends JFrame {
             translatedField.setText(translated);
 
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Lỗi dịch thuật");
+            System.err.println("[MainFrame] Lỗi tại translateMessage():");
             e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi dịch thuật");
         }
     }
 
     private void sendOriginal() {
+        System.out.println("[MainFrame] Gọi Service gửi văn bản Gốc...");
         String text = messageField.getText();
         if (text == null || text.isBlank() || currentChatId == 0) return;
 
@@ -499,6 +538,7 @@ public class MainFrame extends JFrame {
     }
 
     private void sendTranslated() {
+        System.out.println("[MainFrame] Gọi Service gửi văn bản Dịch...");
         String text = translatedField.getText();
         if (text == null || text.isBlank() || currentChatId == 0) return;
 
@@ -550,15 +590,18 @@ public class MainFrame extends JFrame {
             gbc.gridx = 1; gbc.weightx = 1.0; add(passwordField, gbc);
             gbc.gridx = 2; gbc.weightx = 0; add(passBtn, gbc);
 
-            loginBtn.addActionListener(e ->
-                    telegramService.resetSessionAndLogin(phoneField.getText().replaceAll("^0", "+84"))
-            );
+            loginBtn.addActionListener(e -> {
+                System.out.println("[MainFrame] Dialog: Submit Phone");
+                telegramService.resetSessionAndLogin(phoneField.getText().replaceAll("^0", "+84"));
+            });
 
-            otpBtn.addActionListener(e ->
-                    telegramService.checkCode(otpField.getText())
-            );
+            otpBtn.addActionListener(e -> {
+                System.out.println("[MainFrame] Dialog: Submit OTP");
+                telegramService.checkCode(otpField.getText());
+            });
 
             passBtn.addActionListener(e -> {
+                System.out.println("[MainFrame] Dialog: Submit 2FA");
                 telegramService.checkPassword(passwordField.getText());
                 dispose();
             });

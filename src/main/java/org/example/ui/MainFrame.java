@@ -21,38 +21,39 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class MainFrame extends JFrame {
 
+    // Font Noto Sans cho các thành phần giao diện cơ bản
     private final Font unicodeFont = FontUtils.getFont(15f);
+
+    // ĐÃ THÊM: Font đa ngôn ngữ của hệ điều hành dành riêng cho ô nhập liệu để không bị lỗi ô vuông
+    private final Font inputFont = new Font("Segoe UI", Font.PLAIN, 15);
+
+    // ĐÃ SỬA: Chuỗi CSS kết hợp nhiều Font. Nó sẽ ưu tiên Noto Sans, nếu thiếu chữ (như tiếng Thái) sẽ tự lấy Noto Sans Thai.
+    private final String HTML_FONT_CSS = "font-family: 'Noto Sans', 'Noto Sans Thai', 'Segoe UI', Tahoma, sans-serif;";
 
     private final TelegramService telegramService = new TelegramService();
     private final LibreTranslateService translateService = new LibreTranslateService();
 
-    // Dữ liệu
     private final Map<String, String> languageMap = new LinkedHashMap<>();
     private final List<Customer> allCustomers = new ArrayList<>();
     private final Map<Long, Integer> unreadCounts = new LinkedHashMap<>();
 
-    // Bộ nhớ đệm lưu HTML, nội dung gốc và người gửi để phục vụ "Dịch độc lập"
     private final Map<Long, StringBuilder> chatHtmlCache = new HashMap<>();
     private final Map<Long, String> originalMessages = new ConcurrentHashMap<>();
-    private final Map<Long, String> messageSenders = new ConcurrentHashMap<>(); // ĐÃ THÊM: Lưu người gửi
+    private final Map<Long, String> messageSenders = new ConcurrentHashMap<>();
     private long currentChatId = 0;
 
-    // UI Left Panel
     private final DefaultListModel<Customer> customerListModel = new DefaultListModel<>();
     private final JList<Customer> customerList = new JList<>(customerListModel);
     private final JTextField searchUserField = new JTextField();
     private final JButton refreshCustomerButton = new JButton("🔄 Tải lại User");
 
-    // UI Right Panel (Top)
     private final JTextField searchLangField = new JTextField();
     private final JComboBox<String> languageBox = new JComboBox<>();
     private final JButton reloadChatButton = new JButton("Tải lại Chat");
     private final JButton showLoginButton = new JButton("Đăng nhập");
 
-    // UI Right Panel (Center)
     private final JTextPane chatPane = new JTextPane();
 
-    // UI Right Panel (Bottom)
     private final JTextArea messageField = new JTextArea(3, 20);
     private final JTextArea translatedField = new JTextArea(3, 20);
     private final JButton translateButton = new JButton("Dịch (Ctrl+Enter)");
@@ -158,8 +159,9 @@ public class MainFrame extends JFrame {
 
         chatPane.setEditable(false);
         chatPane.setContentType("text/html");
-        chatPane.setFont(unicodeFont);
-        chatPane.setText("<html><body style='font-family: sans-serif; font-size: 14px; margin: 10px; color: gray;'><i>Chọn người dùng để bắt đầu...</i></body></html>");
+        chatPane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true);
+
+        chatPane.setText("<html><body style=\"" + HTML_FONT_CSS + " font-size: 14px; margin: 10px; color: gray;\"><i>Chọn người dùng để bắt đầu...</i></body></html>");
 
         chatPane.addHyperlinkListener(e -> {
             if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
@@ -180,11 +182,12 @@ public class MainFrame extends JFrame {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.BOTH;
 
-        messageField.setFont(unicodeFont);
+        // ĐÃ SỬA: Set font nhập liệu thành Segoe UI để gõ được Tiếng Thái, Ả Rập...
+        messageField.setFont(inputFont);
         messageField.setLineWrap(true);
         messageField.setWrapStyleWord(true);
 
-        translatedField.setFont(unicodeFont);
+        translatedField.setFont(inputFont);
         translatedField.setLineWrap(true);
         translatedField.setWrapStyleWord(true);
 
@@ -212,7 +215,7 @@ public class MainFrame extends JFrame {
 
     private void setupActions() {
         showLoginButton.addActionListener(e -> {
-            LoginDialog dialog = new LoginDialog(this, telegramService, unicodeFont);
+            LoginDialog dialog = new LoginDialog(this, unicodeFont);
             dialog.setVisible(true);
         });
 
@@ -341,7 +344,7 @@ public class MainFrame extends JFrame {
         }
 
         StringBuilder newBuilder = new StringBuilder();
-        newBuilder.append("<html><body style='font-family: sans-serif; font-size: 14px; margin: 10px;'>");
+        newBuilder.append("<html><body style=\"").append(HTML_FONT_CSS).append(" font-size: 14px; margin: 10px;\">");
         chatHtmlCache.put(chatId, newBuilder);
 
         if (chatId == currentChatId) {
@@ -381,11 +384,9 @@ public class MainFrame extends JFrame {
                     .append(escapedText)
                     .append("</div>");
         } else {
-            // ĐÃ SỬA: Lưu tin nhắn và nhận biết người gửi
             originalMessages.put(messageId, text);
             messageSenders.put(messageId, sender);
 
-            // Căn lề Nút Dịch tùy thuộc vào người gửi
             String align = sender.equals("Tôi") ? "right" : "left";
             String linkHtml = "<div id='link_" + messageId + "' style='margin-top: 5px; text-align: " + align + ";'><a href='trans:" + targetChatId + ":" + messageId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
 
@@ -406,7 +407,7 @@ public class MainFrame extends JFrame {
         }
 
         if (isPrepend) {
-            String anchor = "margin: 10px;'>";
+            String anchor = "margin: 10px;\">";
             int insertIndex = builder.indexOf(anchor);
             if (insertIndex != -1) {
                 builder.insert(insertIndex + anchor.length(), bubble.toString());
@@ -432,7 +433,6 @@ public class MainFrame extends JFrame {
         StringBuilder builder = chatHtmlCache.get(chatId);
         if (builder == null) return;
 
-        // ĐÃ SỬA: Lấy đúng Align của HTML dựa vào thông tin Người gửi
         String sender = messageSenders.getOrDefault(msgId, "Khách");
         String align = sender.equals("Tôi") ? "right" : "left";
 
@@ -453,8 +453,7 @@ public class MainFrame extends JFrame {
             String translated = translateService.translateText(originalText, "auto", "vi");
             String escapedTranslated = translated.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
 
-            // ĐÃ SỬA: Căn lề của đoạn text dịch sẽ bám theo Align của bong bóng tin nhắn gốc
-            String resultHtml = "<div style='margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 5px; color: #b30000; font-size: 13.5px; text-align: " + align + ";'>" + escapedTranslated + "</div>";
+            String resultHtml = "<div style='margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 5px; color: #b30000; text-align: " + align + ";'>" + escapedTranslated + "</div>";
 
             SwingUtilities.invokeLater(() -> {
                 StringBuilder b = chatHtmlCache.get(chatId);
@@ -513,7 +512,7 @@ public class MainFrame extends JFrame {
         private JTextField otpField = new JTextField();
         private JTextField passwordField = new JTextField();
 
-        public LoginDialog(JFrame parent, TelegramService telegramService, Font font) {
+        public LoginDialog(JFrame parent, Font font) {
             super(parent, "Đăng nhập Telegram", true);
             setLayout(new GridBagLayout());
 

@@ -33,8 +33,12 @@ public class LibreTranslateService {
                 for (int i = 0; i < array.length(); i++) {
                     JSONObject obj = array.getJSONObject(i);
                     String code = obj.getString("code");
-                    String name = obj.getString("name");
-                    languages.put(name, code);
+                    String englishName = obj.getString("name");
+
+                    // ĐÃ SỬA: Chuyển đổi tên ngôn ngữ sang Tiếng Việt
+                    String viName = getVietnameseName(englishName);
+
+                    languages.put(viName, code);
                 }
                 System.out.println("[Translate] Đã tải thành công " + languages.size() + " ngôn ngữ.");
             }
@@ -105,5 +109,58 @@ public class LibreTranslateService {
             }
         }
         return "";
+    }
+
+    // ĐÃ THÊM: Bộ từ điển map tên ngôn ngữ sang Tiếng Việt
+    private String getVietnameseName(String englishName) {
+        switch (englishName.toLowerCase().trim()) {
+            case "english": return "Tiếng Anh";
+            case "vietnamese": return "Tiếng Việt";
+            case "chinese": return "Tiếng Trung";
+            case "chinese (traditional)": return "Tiếng Trung (Phồn thể)";
+            case "japanese": return "Tiếng Nhật";
+            case "korean": return "Tiếng Hàn";
+            case "french": return "Tiếng Pháp";
+            case "spanish": return "Tiếng Tây Ban Nha";
+            case "russian": return "Tiếng Nga";
+            case "german": return "Tiếng Đức";
+            case "italian": return "Tiếng Ý";
+            case "portuguese": return "Tiếng Bồ Đào Nha";
+            case "arabic": return "Tiếng Ả Rập";
+            case "hindi": return "Tiếng Hindi";
+            case "thai": return "Tiếng Thái";
+            case "indonesian": return "Tiếng Indonesia";
+            case "malay": return "Tiếng Mã Lai";
+            case "dutch": return "Tiếng Hà Lan";
+            case "turkish": return "Tiếng Thổ Nhĩ Kỳ";
+            case "polish": return "Tiếng Ba Lan";
+            case "swedish": return "Tiếng Thụy Điển";
+            case "ukrainian": return "Tiếng Ukraina";
+            case "czech": return "Tiếng Séc";
+            case "danish": return "Tiếng Đan Mạch";
+            case "finnish": return "Tiếng Phần Lan";
+            case "greek": return "Tiếng Hy Lạp";
+            case "hungarian": return "Tiếng Hungary";
+            case "norwegian": return "Tiếng Na Uy";
+            case "romanian": return "Tiếng Romania";
+            case "slovak": return "Tiếng Slovakia";
+            case "bengali": return "Tiếng Bengal";
+            case "persian": return "Tiếng Ba Tư";
+            case "hebrew": return "Tiếng Do Thái";
+            case "tagalog": return "Tiếng Tagalog";
+            case "urdu": return "Tiếng Urdu";
+            case "catalan": return "Tiếng Catalan";
+            case "croatian": return "Tiếng Croatia";
+            case "esperanto": return "Tiếng Esperanto";
+            case "estonian": return "Tiếng Estonia";
+            case "latvian": return "Tiếng Latvia";
+            case "lithuanian": return "Tiếng Litva";
+            case "serbian": return "Tiếng Serbia";
+            case "slovenian": return "Tiếng Slovenia";
+            case "albanian": return "Tiếng Albania";
+            case "azerbaijani": return "Tiếng Azerbaijan";
+            case "bulgarian": return "Tiếng Bulgaria";
+            default: return englishName; // Nếu ngôn ngữ lạ chưa có trong từ điển thì giữ nguyên
+        }
     }
 }

@@ -351,11 +351,13 @@ public class MainFrame extends JFrame {
         filterLanguages();
     }
 
+    // ĐÃ SỬA: Hàm lọc danh sách ngôn ngữ cho phép tìm tiếng Việt không dấu (vd: nhat -> Tiếng Nhật)
     private void filterLanguages() {
-        String query = searchLangField.getText().toLowerCase();
+        String query = removeAccents(searchLangField.getText().toLowerCase());
         languageBox.removeAllItems();
         for (String name : languageMap.keySet()) {
-            if (name.toLowerCase().contains(query)) {
+            String nameNormalized = removeAccents(name.toLowerCase());
+            if (nameNormalized.contains(query)) {
                 languageBox.addItem(name);
             }
         }
@@ -377,7 +379,6 @@ public class MainFrame extends JFrame {
         }));
     }
 
-    // ĐÃ THÊM: Hàm loại bỏ dấu Tiếng Việt (và chữ Đ) để tìm kiếm không dấu
     private String removeAccents(String text) {
         if (text == null) return "";
         String normalized = Normalizer.normalize(text, Normalizer.Form.NFD);
@@ -385,7 +386,6 @@ public class MainFrame extends JFrame {
         return pattern.matcher(normalized).replaceAll("").replace('đ', 'd').replace('Đ', 'D');
     }
 
-    // ĐÃ SỬA: Lọc người dùng sử dụng chuỗi không dấu
     private void filterUsers() {
         String query = removeAccents(searchUserField.getText().toLowerCase());
         customerListModel.clear();

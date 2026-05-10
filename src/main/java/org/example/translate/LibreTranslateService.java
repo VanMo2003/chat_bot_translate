@@ -10,14 +10,14 @@ import java.util.Map;
 public class LibreTranslateService {
 
     private final OkHttpClient client = new OkHttpClient();
-    private String URL_BASE = "https://divisions-embassy-way-gentle.trycloudflare.com";
+    private String URL_BASE = "https://cymbiform-dotty-unabsorbable.ngrok-free.dev";
 
     public Map<String, String> getSupportedLanguages() {
         System.out.println("[Translate] Đang lấy danh sách ngôn ngữ hỗ trợ...");
         Map<String, String> languages = new LinkedHashMap<>();
         try {
             Request request = new Request.Builder()
-                    .url(URL_BASE + "//languages")
+                    .url(URL_BASE + "/languages")
                     .get()
                     .build();
 
@@ -64,7 +64,7 @@ public class LibreTranslateService {
             jsonBody.put("target", target);
             jsonBody.put("format", "text");
 
-            System.out.println("[Translate] Request Payload: " + jsonBody.toString());
+//            System.out.println("[Translate] Request Payload: " + jsonBody.toString());
 
             RequestBody body = RequestBody.create(
                     jsonBody.toString(),
@@ -72,7 +72,7 @@ public class LibreTranslateService {
             );
 
             Request request = new Request.Builder()
-                    .url(URL_BASE + "//translate")
+                    .url(URL_BASE + "/translate")
                     .post(body)
                     .addHeader("Content-Type", "application/json")
                     .build();
@@ -86,7 +86,7 @@ public class LibreTranslateService {
                 System.out.println("[Translate] Response Body: " + responseBody);
                 JSONObject json = new JSONObject(responseBody);
                 String result = json.optString("translatedText", text);
-                System.out.println("[Translate] Kết quả dịch: " + result);
+//                System.out.println("[Translate] Kết quả dịch: " + result);
                 return result;
             }
 
@@ -166,5 +166,78 @@ public class LibreTranslateService {
             case "vietnamese": return "Tiếng Việt (Vietnamese)";
             default: return englishName;
         }
+    }
+
+    public void runTranslationSelfTest() {
+
+        System.out.println("========================================");
+        System.out.println("   BẮT ĐẦU TEST TOÀN BỘ NGÔN NGỮ");
+        System.out.println("========================================");
+
+        Map<String, String> languages = getSupportedLanguages();
+
+        if (languages.isEmpty()) {
+            System.out.println("[TEST] Không tải được danh sách ngôn ngữ.");
+            return;
+        }
+
+        // Các câu test cơ bản
+        String[] testSentences = {
+                "Xin chào",
+                "Cảm ơn",
+                "Tạm biệt",
+                "Bạn khỏe không?",
+                "Tôi là người Việt Nam",
+                "Hôm nay trời đẹp",
+                "Chúc bạn một ngày tốt lành"
+        };
+
+        int success = 0;
+        int failed = 0;
+
+        for (Map.Entry<String, String> entry : languages.entrySet()) {
+
+            String languageName = entry.getKey();
+            String languageCode = entry.getValue();
+
+            try {
+
+                for (String text : testSentences) {
+
+                    String translated = translateText(
+                            text,
+                            "vi",
+                            languageCode
+                    );
+
+                    // Kiểm tra đơn giản
+                    if (translated == null ||
+                            translated.trim().isEmpty()) {
+
+                        System.out.println("[FAILED] Translation rỗng");
+                        failed++;
+
+                    } else {
+
+                        success++;
+                    }
+
+                    // Delay nhẹ tránh spam API
+                    Thread.sleep(300);
+                }
+
+            } catch (Exception e) {
+
+                failed++;
+                System.out.println("[FAILED] Lỗi khi test ngôn ngữ: " + languageCode);
+                e.printStackTrace();
+            }
+        }
+
+        System.out.println("========================================");
+        System.out.println("   HOÀN THÀNH TEST");
+        System.out.println("   SUCCESS: " + success);
+        System.out.println("   FAILED : " + failed);
+        System.out.println("========================================");
     }
 }

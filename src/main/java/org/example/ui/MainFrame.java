@@ -113,7 +113,7 @@ public class MainFrame extends JFrame {
                     Customer customer = (Customer) value;
                     int unread = unreadCounts.getOrDefault(customer.getChatId(), 0);
 
-                    String displayText = value.toString().replace("<", "&lt;").replace(">", "&gt;");
+                    String displayText = customer.getName().replace("<", "&lt;").replace(">", "&gt;");
 
                     if (unread > 0) {
                         setText("<html><b>[" + unread + "] " + displayText + "</b></html>");
@@ -147,7 +147,6 @@ public class MainFrame extends JFrame {
         searchLangField.setPreferredSize(new Dimension(120, 30));
 
         languageBox.setFont(unicodeFont);
-        // ĐÃ SỬA: Tăng kích thước hộp chọn ngôn ngữ để hiển thị đủ chữ
         languageBox.setPreferredSize(new Dimension(250, 30));
 
         topPanel.add(new JLabel("Tìm kiếm:"));
@@ -374,7 +373,7 @@ public class MainFrame extends JFrame {
             allCustomers.addAll(customers);
             filterUsers();
             refreshCustomerButton.setEnabled(true);
-            refreshCustomerButton.setText("🔄 Tải lại User");
+            refreshCustomerButton.setText("🔄 Tải lại người dùng");
             System.out.println("[MainFrame] Đã làm mới UI Danh sách người dùng (" + customers.size() + ").");
         }));
     }

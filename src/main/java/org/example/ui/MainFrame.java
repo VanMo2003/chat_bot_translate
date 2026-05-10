@@ -10,12 +10,14 @@ import org.example.uitls.FontUtils;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.HyperlinkEvent;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MainFrame extends JFrame {
 
@@ -29,8 +31,9 @@ public class MainFrame extends JFrame {
     private final List<Customer> allCustomers = new ArrayList<>();
     private final Map<Long, Integer> unreadCounts = new LinkedHashMap<>();
 
-    // ĐÃ THÊM: Bộ nhớ đệm (Cache) để lưu trữ nội dung chat đã dịch
+    // Bộ nhớ đệm lưu HTML và nội dung gốc để phục vụ "Dịch độc lập"
     private final Map<Long, StringBuilder> chatHtmlCache = new HashMap<>();
+    private final Map<Long, String> originalMessages = new ConcurrentHashMap<>();
     private long currentChatId = 0;
 
     // UI Left Panel
@@ -144,7 +147,6 @@ public class MainFrame extends JFrame {
         topPanel.add(new JLabel("Tìm ngôn ngữ:"));
         topPanel.add(searchLangField);
         topPanel.add(languageBox);
-//        topPanel.add(translateAllButton);
         topPanel.add(reloadChatButton);
 
         JPanel wrapperTop = new JPanel(new BorderLayout());
@@ -157,6 +159,19 @@ public class MainFrame extends JFrame {
         chatPane.setContentType("text/html");
         chatPane.setFont(unicodeFont);
         chatPane.setText("<html><body style='font-family: sans-serif; font-size: 14px; margin: 10px; color: gray;'><i>Chọn người dùng để bắt đầu...</i></body></html>");
+
+        chatPane.addHyperlinkListener(e -> {
+            if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+                String desc = e.getDescription();
+                if (desc != null && desc.startsWith("trans:")) {
+                    String[] parts = desc.split(":");
+                    long chatId = Long.parseLong(parts[1]);
+                    long msgId = Long.parseLong(parts[2]);
+                    translateSingleMessage(chatId, msgId);
+                }
+            }
+        });
+
         JScrollPane chatScroll = new JScrollPane(chatPane);
 
         JPanel bottomPanel = new JPanel(new GridBagLayout());
@@ -220,11 +235,10 @@ public class MainFrame extends JFrame {
             }
         });
 
-        // Xóa cache của Chat hiện tại để ép tải & dịch lại từ đầu
         reloadChatButton.addActionListener(e -> {
             if (currentChatId != 0) {
                 chatHtmlCache.remove(currentChatId);
-                loadAndTranslateHistory(currentChatId);
+                loadHistory(currentChatId);
             }
         });
 
@@ -242,30 +256,24 @@ public class MainFrame extends JFrame {
     }
 
     private void initTelegram() throws Client.ExecutionException {
-        telegramService.setMessageListener((chatId, sender, message) -> {
-            new Thread(() -> {
-                // Chỉ dịch tin nhắn của Khách, giữ nguyên tin nhắn mình gửi
-                String displayMsg = message;
-                if ("Khách".equals(sender)) {
-                    displayMsg = translateService.translateText(message, "auto", "vi");
+        telegramService.setMessageListener((chatId, sender, messageText) -> {
+            long msgId = System.nanoTime();
+
+            SwingUtilities.invokeLater(() -> {
+                if (chatHtmlCache.containsKey(chatId)) {
+                    appendBubbleToBuilder(chatId, msgId, sender, messageText, false);
+
+                    if ("Khách".equals(sender)) {
+                        translateSingleMessage(chatId, msgId);
+                    }
                 }
 
-                final String finalMsg = displayMsg;
-
-                SwingUtilities.invokeLater(() -> {
-                    // Nếu đoạn chat này đã có trong Cache, tự động nối tin nhắn mới vào đáy
-                    if (chatHtmlCache.containsKey(chatId)) {
-                        appendBubbleToBuilder(chatId, sender, finalMsg, false);
-                    }
-
-                    // Cập nhật số đếm tin nhắn chưa đọc
-                    if (chatId != currentChatId && "Khách".equals(sender)) {
-                        int count = unreadCounts.getOrDefault(chatId, 0);
-                        unreadCounts.put(chatId, count + 1);
-                        customerList.repaint();
-                    }
-                });
-            }).start();
+                if (chatId != currentChatId && "Khách".equals(sender)) {
+                    int count = unreadCounts.getOrDefault(chatId, 0);
+                    unreadCounts.put(chatId, count + 1);
+                    customerList.repaint();
+                }
+            });
         });
 
         telegramService.init();
@@ -320,12 +328,10 @@ public class MainFrame extends JFrame {
         unreadCounts.put(currentChatId, 0);
         customerList.repaint();
 
-        loadAndTranslateHistory(currentChatId);
+        loadHistory(currentChatId);
     }
 
-    // ĐÃ SỬA TỐI ƯU CỰC MẠNH: Dùng chung Cache
-    private void loadAndTranslateHistory(long chatId) {
-        // Nếu đã từng tải đoạn chat này -> Lấy từ RAM ra ngay lập tức
+    private void loadHistory(long chatId) {
         if (chatHtmlCache.containsKey(chatId)) {
             StringBuilder builder = chatHtmlCache.get(chatId);
             chatPane.setText(builder.toString() + "</body></html>");
@@ -333,24 +339,20 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        // Nếu là lần đầu tiên bấm vào -> Khởi tạo bộ nhớ và tải
         StringBuilder newBuilder = new StringBuilder();
         newBuilder.append("<html><body style='font-family: sans-serif; font-size: 14px; margin: 10px;'>");
         chatHtmlCache.put(chatId, newBuilder);
 
         if (chatId == currentChatId) {
-            chatPane.setText(newBuilder.toString() + "<div style='text-align: center; color: gray;'><i>Đang tải và dịch tự động toàn bộ tin nhắn...</i></div></body></html>");
+            chatPane.setText(newBuilder.toString() + "<div style='text-align: center; color: gray;'><i>Đang tải lịch sử...</i></div></body></html>");
         }
 
         telegramService.getRawChatHistory(chatId, messages -> {
-            new Thread(() -> {
-                // Clear UI nếu không có tin nhắn nào
+            SwingUtilities.invokeLater(() -> {
                 if (messages.messages.length == 0) {
-                    SwingUtilities.invokeLater(() -> {
-                        if (chatId == currentChatId) {
-                            chatPane.setText(newBuilder.toString() + "</body></html>");
-                        }
-                    });
+                    if (chatId == currentChatId) {
+                        chatPane.setText(newBuilder.toString() + "</body></html>");
+                    }
                     return;
                 }
 
@@ -359,49 +361,48 @@ public class MainFrame extends JFrame {
                     if (message.content instanceof TdApi.MessageText textMessage) {
                         String sender = message.isOutgoing ? "Tôi" : "Khách";
                         String text = textMessage.text.text;
-
-                        // Chỉ dịch tin nhắn của Khách
-                        String displayMsg = text;
-                        if ("Khách".equals(sender)) {
-                            displayMsg = translateService.translateText(text, "auto", "vi");
-                        }
-
-                        final String finalMsg = displayMsg;
-                        SwingUtilities.invokeLater(() -> {
-                            appendBubbleToBuilder(chatId, sender, finalMsg, true); // Đẩy lên trên (Prepend)
-                        });
+                        appendBubbleToBuilder(chatId, message.id, sender, text, true);
                     }
                 }
-            }).start();
+            });
         });
     }
 
-    // ĐÃ THÊM: Hàm lõi để thêm/chèn tin nhắn trực tiếp vào bộ nhớ đệm
-    private void appendBubbleToBuilder(long targetChatId, String sender, String text, boolean isPrepend) {
+    private void appendBubbleToBuilder(long targetChatId, long messageId, String sender, String text, boolean isPrepend) {
         StringBuilder builder = chatHtmlCache.get(targetChatId);
         if (builder == null) return;
 
-        String escapedText = text.replace("\n", "<br>").replace("<", "&lt;").replace(">", "&gt;");
+        // ĐÃ SỬA: Thay thế các ký tự HTML (<, >) trước, sau đó mới đổi \n thành <br>
+        String escapedText = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
         StringBuilder bubble = new StringBuilder();
 
         if (sender.equals("Tôi")) {
+            // ĐÃ THÊM: Lưu tin nhắn và tạo nút dịch cho cả "Tôi"
+            originalMessages.put(messageId, text);
+            String linkHtml = "<div id='link_" + messageId + "' style='margin-top: 5px; text-align: left;'><a href='trans:" + targetChatId + ":" + messageId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
+
             bubble.append("<div style='text-align: right; margin-bottom: 8px;'>")
                     .append("<span style='background-color: #DCF8C6; padding: 8px 12px; border-radius: 15px; display: inline-block; max-width: 70%; text-align: left;'>")
                     .append(escapedText)
+                    .append(linkHtml)
                     .append("</span></div>");
+
         } else if (sender.equals("Hệ thống")) {
             bubble.append("<div style='text-align: center; margin-bottom: 8px; color: gray;'>")
                     .append(escapedText)
                     .append("</div>");
         } else {
+            originalMessages.put(messageId, text);
+            String linkHtml = "<div id='link_" + messageId + "' style='margin-top: 5px;'><a href='trans:" + targetChatId + ":" + messageId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
+
             bubble.append("<div style='text-align: left; margin-bottom: 8px;'>")
                     .append("<span style='background-color: #F1F0F0; padding: 8px 12px; border-radius: 15px; display: inline-block; max-width: 70%;'>")
                     .append("<b>").append(sender).append("</b><br>")
                     .append(escapedText)
+                    .append(linkHtml)
                     .append("</span></div>");
         }
 
-        // Nếu Prepend (Dành cho load lịch sử từ mới nhất -> cũ nhất)
         if (isPrepend) {
             String anchor = "margin: 10px;'>";
             int insertIndex = builder.indexOf(anchor);
@@ -410,17 +411,66 @@ public class MainFrame extends JFrame {
             } else {
                 builder.append(bubble.toString());
             }
-        }
-        // Nếu Append (Dành cho tin nhắn mới tới trong thời gian thực)
-        else {
+        } else {
             builder.append(bubble.toString());
         }
 
-        // Cập nhật ngay lên giao diện nếu đang ở đúng khung Chat đó
         if (targetChatId == currentChatId) {
             chatPane.setText(builder.toString() + "</body></html>");
-            SwingUtilities.invokeLater(() -> chatPane.setCaretPosition(chatPane.getDocument().getLength()));
+            if (!isPrepend) {
+                SwingUtilities.invokeLater(() -> chatPane.setCaretPosition(chatPane.getDocument().getLength()));
+            }
         }
+    }
+
+    private void translateSingleMessage(long chatId, long msgId) {
+        String originalText = originalMessages.get(msgId);
+        if (originalText == null) return;
+
+        StringBuilder builder = chatHtmlCache.get(chatId);
+        if (builder == null) return;
+
+        String linkHtml = "<div id='link_" + msgId + "' style='margin-top: 5px; text-align: left;'><a href='trans:" + chatId + ":" + msgId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
+        String linkHtmlKhach = "<div id='link_" + msgId + "' style='margin-top: 5px;'><a href='trans:" + chatId + ":" + msgId + "' style='color: #0066cc; text-decoration: none; font-size: 12px;'>[Dịch]</a></div>";
+        String loadingHtml = "<div id='link_" + msgId + "' style='margin-top: 5px;'><i style='color: gray; font-size: 12px;'>Đang dịch...</i></div>";
+
+        // Thay nút Dịch thành dòng chữ Đang dịch
+        int idx = builder.indexOf(linkHtml);
+        if (idx == -1) idx = builder.indexOf(linkHtmlKhach); // Dự phòng trường hợp thẻ div khác chút
+
+        if (idx != -1) {
+            int length = builder.indexOf(linkHtml) != -1 ? linkHtml.length() : linkHtmlKhach.length();
+            builder.replace(idx, idx + length, loadingHtml);
+            if (chatId == currentChatId) {
+                int currentCaret = chatPane.getCaretPosition();
+                chatPane.setText(builder.toString() + "</body></html>");
+                chatPane.setCaretPosition(Math.min(currentCaret, chatPane.getDocument().getLength()));
+            }
+        }
+
+        new Thread(() -> {
+            String translated = translateService.translateText(originalText, "auto", "vi");
+
+            // ĐÃ SỬA: Đảo thứ tự replace để <br> hoạt động
+            String escapedTranslated = translated.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
+
+            String resultHtml = "<div style='margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 5px; color: #b30000; font-size: 13.5px; text-align: left;'>" + escapedTranslated + "</div>";
+
+            SwingUtilities.invokeLater(() -> {
+                StringBuilder b = chatHtmlCache.get(chatId);
+                if (b != null) {
+                    int i = b.indexOf(loadingHtml);
+                    if (i != -1) {
+                        b.replace(i, i + loadingHtml.length(), resultHtml);
+                        if (chatId == currentChatId) {
+                            int caret = chatPane.getCaretPosition();
+                            chatPane.setText(b.toString() + "</body></html>");
+                            chatPane.setCaretPosition(Math.min(caret, chatPane.getDocument().getLength()));
+                        }
+                    }
+                }
+            });
+        }).start();
     }
 
     private void translateMessage() {

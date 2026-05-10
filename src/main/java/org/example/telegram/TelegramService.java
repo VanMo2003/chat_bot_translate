@@ -23,7 +23,7 @@ public class TelegramService {
     private MessageListener messageListener;
     private HistoryListener historyListener;
     private TdApi.AuthorizationState authorizationState;
-    private Runnable onAuthReady; // Tín hiệu báo đăng nhập thành công
+    private Runnable onAuthReady;
 
     static {
         System.loadLibrary("tdjni");
@@ -41,7 +41,6 @@ public class TelegramService {
         this.historyListener = historyListener;
     }
 
-    // Set callback khi trạng thái TDLib chuyển sang Ready
     public void setOnAuthReady(Runnable onAuthReady) {
         this.onAuthReady = onAuthReady;
     }
@@ -91,7 +90,6 @@ public class TelegramService {
             log("ENTER 2FA PASSWORD");
         } else if (state instanceof TdApi.AuthorizationStateReady) {
             log("LOGIN SUCCESS");
-            // Kích hoạt load tự động khi sẵn sàng
             if (onAuthReady != null) {
                 onAuthReady.run();
             }
@@ -207,13 +205,10 @@ public class TelegramService {
         client.send(request, this::onResult);
     }
 
-    // Đã thay đổi: Thêm OpenChat và cơ chế thử lại nếu Cache cục bộ thiếu tin nhắn
     public void loadChatHistory(long chatId, Runnable onBeforeDispatch) {
         client.send(new TdApi.OpenChat(chatId), ignored -> {
             client.send(new TdApi.GetChatHistory(chatId, 0, 0, 50, false), object -> {
                 if (object instanceof TdApi.Messages messages) {
-
-                    // Nếu TDLib chỉ trả về 1 tin (từ cache), đợi một nhịp để tải từ Server
                     if (messages.messages.length <= 1) {
                         new Thread(() -> {
                             try { Thread.sleep(600); } catch (InterruptedException e) { }
@@ -233,7 +228,26 @@ public class TelegramService {
         });
     }
 
-    // Hàm phụ trợ gỡ các tin nhắn và đẩy lên giao diện
+    // Hàm lấy mảng tin nhắn raw hỗ trợ việc Dịch từ mới -> cũ
+    public void getRawChatHistory(long chatId, Consumer<TdApi.Messages> callback) {
+        client.send(new TdApi.GetChatHistory(chatId, 0, 0, 50, false), object -> {
+            if (object instanceof TdApi.Messages messages) {
+                if (messages.messages.length <= 1) {
+                    new Thread(() -> {
+                        try { Thread.sleep(600); } catch (InterruptedException e) { }
+                        client.send(new TdApi.GetChatHistory(chatId, 0, 0, 50, false), obj2 -> {
+                            if (obj2 instanceof TdApi.Messages msgs2) {
+                                callback.accept(msgs2);
+                            }
+                        });
+                    }).start();
+                } else {
+                    callback.accept(messages);
+                }
+            }
+        });
+    }
+
     private void dispatchHistory(long chatId, TdApi.Messages messages) {
         for (int i = messages.messages.length - 1; i >= 0; i--) {
             TdApi.Message message = messages.messages[i];
